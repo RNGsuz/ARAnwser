@@ -499,7 +499,7 @@ function GlassesDisplay({ state, answer, error }: { state: AssistantState; answe
 }
 
 function GlassesCardContent({ card }: { card: GlassesCard }) {
-  if (card.type === 'summary') return <View><Text style={styles.displayAnswer}>{card.text}</Text>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
+  if (card.type === 'summary') return <View><View style={styles.displaySummaryLines}>{card.lines.map((line, index) => <Text key={`${index}-${line}`} style={card.format === 'output' ? styles.displayOutputLine : styles.displayAnswer}>{line}</Text>)}</View>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
   if (card.type === 'math') return <AnswerContent blocks={[card.block]} fallback="" compact />;
   if (card.type === 'note') return <Text style={styles.displayEvidence}>{card.text}</Text>;
   return (
@@ -563,6 +563,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#68716b' }, dotActive: { backgroundColor: '#ff5d62' }, captureText: { color: '#d9e5dd', fontSize: 10, letterSpacing: 0.7, fontWeight: '700' },
   glassesArea: { gap: 9 }, glasses: { minHeight: 220, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 20, gap: 18, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
   displayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, displayLabel: { color: '#3e9b5c', fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, displayProgress: { color: '#70ff9b', fontSize: 10, fontWeight: '900' }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
+  displaySummaryLines: { gap: 4 }, displayOutputLine: { color: '#70ff9b', fontFamily: 'monospace', fontSize: 19, lineHeight: 24, fontWeight: '700' },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   displayCode: { gap: 3 }, displayCodeRow: { flexDirection: 'row', gap: 7 }, displayLineNumber: { width: 20, color: '#438f5a', fontFamily: 'monospace', fontSize: 11, lineHeight: 17, textAlign: 'right' }, displayCodeText: { flex: 1, color: '#aaffbf', fontFamily: 'monospace', fontSize: 11, lineHeight: 17 }, displayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }, displayNavText: { color: '#70ff9b', fontSize: 12, fontWeight: '800', padding: 7 }, displayNavDisabled: { color: '#35463b' }, displayNavHint: { color: '#5e7065', fontSize: 10 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },

@@ -5,9 +5,18 @@ import type { Config } from "./config.js";
 export const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["shortAnswer", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
+  required: ["shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
   properties: {
     shortAnswer: { type: "string", maxLength: 240 },
+    glassesSummary: {
+      type: "object",
+      additionalProperties: false,
+      required: ["format", "lines"],
+      properties: {
+        format: { type: "string", enum: ["text", "output"] },
+        lines: { type: "array", minItems: 1, maxItems: 12, items: { type: "string", maxLength: 80 } },
+      },
+    },
     spokenAnswer: { type: "string", maxLength: 1600 },
     evidence: { type: "array", maxItems: 3, items: { type: "string", maxLength: 320 } },
     confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -96,6 +105,7 @@ export class OpenAIVisionService implements VisionService {
         hasImage ? "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one." : "",
         hasImage ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
         "Use the previous exchange only to resolve contextual follow-ups. Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief supporting points.",
+        "glassesSummary is the result-only view for a small display. For related subquestions, create exactly one concise line per requested part and preserve labels such as a), b), and c). Do not add reasoning or introductions to these lines. Quote string results and write numbers, booleans, and null explicitly. Set format=output for program output, exact result lists, or labeled exercise answers; otherwise use format=text. For a normal single question, use one to three short lines.",
         "Build blocks in reading order. Use text blocks for prose and limited Markdown, code blocks for source code with its language, and math blocks for LaTeX. Never put code or display mathematics into a text block.",
         "spokenAnswer must verbalize formulas and code naturally instead of reading raw LaTeX or punctuation.",
         `Answer in locale ${input.locale}.`,

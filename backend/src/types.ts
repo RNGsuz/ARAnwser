@@ -8,6 +8,10 @@ export const answerBlockSchema = z.discriminatedUnion("type", [
 
 export const answerSchema = z.object({
   shortAnswer: z.string().min(1).max(240),
+  glassesSummary: z.object({
+    format: z.enum(["text", "output"]),
+    lines: z.array(z.string().min(1).max(80)).min(1).max(12),
+  }),
   spokenAnswer: z.string().min(1).max(1600),
   evidence: z.array(z.string().min(1).max(320)).max(3),
   confidence: z.number().min(0).max(1),

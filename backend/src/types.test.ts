@@ -6,6 +6,7 @@ describe("structured answer schema", () => {
   it("accepts ordered text, code, and math blocks", () => {
     const result = answerSchema.parse({
       shortAnswer: "Drei Darstellungen",
+      glassesSummary: { format: "output", lines: ["a) 7", "b) \"ABC\""] },
       spokenAnswer: "Die Antwort enthält erklärenden Text, Programmcode und eine mathematische Formel.",
       evidence: [],
       confidence: 0.98,
@@ -18,17 +19,32 @@ describe("structured answer schema", () => {
       ],
     });
     expect(result.blocks.map((block) => block.type)).toEqual(["text", "code", "math"]);
+    expect(result.glassesSummary.lines).toEqual(["a) 7", "b) \"ABC\""]);
   });
 
   it("rejects an unknown display block", () => {
     expect(() => answerSchema.parse({
       shortAnswer: "Test",
+      glassesSummary: { format: "text", lines: ["Test"] },
       spokenAnswer: "Test",
       evidence: [],
       confidence: 1,
       needsRetake: false,
       retakeHint: null,
       blocks: [{ type: "html", value: "<b>unsafe</b>" }],
+    })).toThrow();
+  });
+
+  it("rejects empty glasses summaries", () => {
+    expect(() => answerSchema.parse({
+      shortAnswer: "Test",
+      glassesSummary: { format: "output", lines: [] },
+      spokenAnswer: "Test",
+      evidence: [],
+      confidence: 1,
+      needsRetake: false,
+      retakeHint: null,
+      blocks: [{ type: "text", markdown: "Test" }],
     })).toThrow();
   });
 

@@ -7,13 +7,14 @@ export interface GlassesCodeLine {
 }
 
 export type GlassesCard =
-  | { type: 'summary'; title: string; text: string; nextHint: string | null }
+  | { type: 'summary'; title: string; format: 'text' | 'output'; lines: string[]; nextHint: string | null }
   | { type: 'code'; title: string; lines: GlassesCodeLine[] }
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
   | { type: 'note'; title: string; text: string };
 
-const maxCodeColumns = 40;
+const maxCodeColumns = 60;
 const codeLinesPerCard = 5;
+const summaryLinesPerCard = 5;
 
 function splitAtReadableBoundary(value: string, limit: number): [string, string] {
   if (value.length <= limit) return [value, ''];
@@ -74,5 +75,14 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
       : firstDetail
         ? 'Tippen für Details'
         : null;
-  return [{ type: 'summary', title: 'KURZANTWORT', text: answer.shortAnswer, nextHint }, ...detailCards];
+  const summary = answer.glassesSummary ?? { format: 'text' as const, lines: [answer.shortAnswer] };
+  const summaryPages = chunks(summary.lines, summaryLinesPerCard);
+  const summaryCards: GlassesCard[] = summaryPages.map((lines, index) => ({
+    type: 'summary',
+    title: summaryPages.length > 1 ? `KURZANTWORT ${index + 1}/${summaryPages.length}` : 'KURZANTWORT',
+    format: summary.format,
+    lines,
+    nextHint: index === summaryPages.length - 1 ? nextHint : 'Tippen für weitere Ergebnisse',
+  }));
+  return [...summaryCards, ...detailCards];
 }

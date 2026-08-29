@@ -13,6 +13,7 @@ export async function saveAnswer(answer: DocumentAnswer): Promise<void> {
   const entry: HistoryEntry = {
     question: answer.question,
     shortAnswer: answer.shortAnswer,
+    glassesSummary: answer.glassesSummary,
     spokenAnswer: answer.spokenAnswer,
     confidence: answer.confidence,
     blocks: answer.blocks,

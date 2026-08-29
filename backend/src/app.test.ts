@@ -17,6 +17,7 @@ const config: Config = {
 
 const answer = {
   shortAnswer: "42",
+  glassesSummary: { format: "output" as const, lines: ["a) 42"] },
   spokenAnswer: "Die Antwort ist 42.",
   evidence: ["Auf der Folie steht 42."],
   confidence: 0.95,

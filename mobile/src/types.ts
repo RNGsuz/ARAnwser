@@ -19,6 +19,7 @@ export interface DocumentAnswer {
   sessionId: string;
   question: string;
   shortAnswer: string;
+  glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   spokenAnswer: string;
   evidence: string[];
   confidence: number;
@@ -30,6 +31,7 @@ export interface DocumentAnswer {
 export interface HistoryEntry {
   question: string;
   shortAnswer: string;
+  glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   spokenAnswer: string;
   confidence: number;
   blocks?: AnswerBlock[];
