@@ -165,7 +165,7 @@ export default function App() {
     setAnswer(result);
     setCurrentSession(result.sessionId);
     setState('answer');
-    if (settings.saveHistory) {
+    if (settings.saveHistory && !result.needsRetake) {
       await saveAnswer(result);
       setHistory(await loadHistory());
     }
@@ -213,6 +213,15 @@ export default function App() {
 
           <View style={styles.cameraFrame}>
             {photoUri ? <Image source={{ uri: photoUri }} style={styles.camera} resizeMode="cover" /> : <CameraView ref={camera} style={styles.camera} facing="back" />}
+            {!photoUri ? (
+              <View style={styles.documentGuide} pointerEvents="none">
+                <View style={[styles.guideCorner, styles.guideTopLeft]} />
+                <View style={[styles.guideCorner, styles.guideTopRight]} />
+                <View style={[styles.guideCorner, styles.guideBottomLeft]} />
+                <View style={[styles.guideCorner, styles.guideBottomRight]} />
+                <Text style={styles.guideText}>Dokument vollständig im Rahmen halten</Text>
+              </View>
+            ) : null}
             <View style={styles.captureBadge}>
               <View style={[styles.dot, state === 'capturing' || state === 'listening' ? styles.dotActive : null]} />
               <Text style={styles.captureText}>{state === 'listening' ? 'MIKROFON AKTIV' : 'AUFNAHME NUR PER TASTE'}</Text>
@@ -238,20 +247,32 @@ export default function App() {
               </Pressable>
               <Pressable style={styles.secondaryButton} onPress={() => startVoiceQuestion()} onLongPress={cancel}><Text style={styles.secondaryButtonText}>Eigene Frage sprechen</Text></Pressable>
             </View>
+          ) : answer?.needsRetake ? (
+            <Pressable style={[styles.primaryButton, styles.retakeButton]} onPress={captureDocument} onLongPress={cancel}>
+              <Text style={styles.primaryButtonText}>↻  Foto erneut aufnehmen</Text>
+            </Pressable>
           ) : (
             <Pressable style={styles.primaryButton} onPress={captureDocument} onLongPress={cancel}><Text style={styles.primaryButtonText}>{answer || error ? 'Neue Aufnahme' : 'Foto aufnehmen'}</Text></Pressable>
           )}
 
           {answer ? (
-            <View style={styles.answerPanel}>
-              <Text style={styles.answerText}>{answer.spokenAnswer}</Text>
-              <Text style={styles.confidence}>Sicherheit: {Math.round(answer.confidence * 100)} %</Text>
-              <View style={styles.followUpRow}>
-                <TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Folgefrage zum selben Bild" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" />
-                <Pressable style={styles.voiceFollowUpButton} onPress={startVoiceFollowUp} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable>
-                <Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable>
+            answer.needsRetake ? (
+              <View style={styles.retakePanel}>
+                <Text style={styles.retakeTitle}>Aufnahme nicht sicher lesbar</Text>
+                <Text style={styles.answerText}>{answer.retakeHint || answer.spokenAnswer}</Text>
+                <Text style={styles.retakePrivacy}>Dieses Foto wird nicht im Verlauf gespeichert.</Text>
               </View>
-            </View>
+            ) : (
+              <View style={styles.answerPanel}>
+                <Text style={styles.answerText}>{answer.spokenAnswer}</Text>
+                <Text style={styles.confidence}>Sicherheit: {Math.round(answer.confidence * 100)} %</Text>
+                <View style={styles.followUpRow}>
+                  <TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Folgefrage zum selben Bild" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" />
+                  <Pressable style={styles.voiceFollowUpButton} onPress={startVoiceFollowUp} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable>
+                  <Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable>
+                </View>
+              </View>
+            )
           ) : null}
           {state !== 'idle' ? <Pressable onPress={cancel} onLongPress={cancel}><Text style={styles.cancel}>Sitzung verwerfen</Text></Pressable> : null}
         </ScrollView>
@@ -422,17 +443,19 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, eyebrow: { color: '#70ff9b', fontSize: 11, letterSpacing: 1.5, fontWeight: '700' },
   title: { color: '#f3fff7', fontSize: 32, fontWeight: '800', marginTop: 2 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#17231c', alignItems: 'center', justifyContent: 'center' }, iconText: { color: '#70ff9b', fontSize: 25 },
   cameraFrame: { height: 265, borderRadius: 26, overflow: 'hidden', backgroundColor: '#111', borderWidth: 1, borderColor: '#27372e' }, camera: { width: '100%', height: '100%' },
+  documentGuide: { position: 'absolute', left: 26, right: 26, top: 40, bottom: 28, alignItems: 'center', justifyContent: 'flex-end' }, guideCorner: { position: 'absolute', width: 28, height: 28, borderColor: 'rgba(112,255,155,0.9)' }, guideTopLeft: { left: 0, top: 0, borderLeftWidth: 3, borderTopWidth: 3 }, guideTopRight: { right: 0, top: 0, borderRightWidth: 3, borderTopWidth: 3 }, guideBottomLeft: { left: 0, bottom: 0, borderLeftWidth: 3, borderBottomWidth: 3 }, guideBottomRight: { right: 0, bottom: 0, borderRightWidth: 3, borderBottomWidth: 3 }, guideText: { color: '#effaf2', fontSize: 11, fontWeight: '700', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(4,10,7,0.72)', marginBottom: 8 },
   captureBadge: { position: 'absolute', left: 12, top: 12, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(4,10,7,0.78)', gap: 7 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#68716b' }, dotActive: { backgroundColor: '#ff5d62' }, captureText: { color: '#d9e5dd', fontSize: 10, letterSpacing: 0.7, fontWeight: '700' },
   glasses: { minHeight: 180, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 21, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
   displayLabel: { position: 'absolute', top: 12, left: 20, color: '#3e9b5c', fontSize: 9, letterSpacing: 1.4 }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
-  primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
+  primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
   choicePanel: { gap: 11, padding: 14, borderRadius: 20, backgroundColor: '#101c15' }, choiceTitle: { color: '#dce9e0', fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
   quickReadButton: { minHeight: 58, borderRadius: 18, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#1a2a21', borderWidth: 1, borderColor: '#365041' }, quickReadIcon: { color: '#70ff9b', fontSize: 18, fontWeight: '900' }, quickReadCopy: { flex: 1 }, quickReadTitle: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, quickReadDescription: { color: '#8fa097', fontSize: 11, marginTop: 2 },
   secondaryButton: { minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#55ed80' }, secondaryButtonText: { color: '#70ff9b', fontSize: 16, fontWeight: '700' },
   loading: { height: 58, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center' }, muted: { color: '#9aaba0', fontSize: 15 },
   answerPanel: { borderRadius: 20, backgroundColor: '#111d16', padding: 18, gap: 13 }, answerText: { color: '#e8f3eb', fontSize: 17, lineHeight: 25 }, confidence: { color: '#8da096', fontSize: 12 },
+  retakePanel: { borderRadius: 20, backgroundColor: '#271f0d', borderWidth: 1, borderColor: '#8c7029', padding: 18, gap: 10 }, retakeTitle: { color: '#ffda77', fontSize: 17, fontWeight: '800' }, retakePrivacy: { color: '#a69a78', fontSize: 12 },
   followUpRow: { flexDirection: 'row', gap: 9 }, input: { flex: 1, minHeight: 50, borderRadius: 15, paddingHorizontal: 15, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#2d4035' }, voiceFollowUpButton: { width: 50, borderRadius: 15, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, voiceFollowUpText: { color: '#ff686d', fontSize: 17 }, sendButton: { width: 50, borderRadius: 15, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, sendText: { color: '#07100c', fontSize: 24, fontWeight: '800' }, cancel: { color: '#87958c', textAlign: 'center', padding: 10 },
   modal: { flex: 1, backgroundColor: '#08110d' }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#203027' }, modalTitle: { color: '#f3fff7', fontSize: 24, fontWeight: '800' }, modalAction: { color: '#70ff9b', fontSize: 16 },
   historyList: { padding: 20, gap: 12 }, historyEntry: { backgroundColor: '#121f17', padding: 16, borderRadius: 16, gap: 7 }, historyQuestion: { color: '#93a399', fontSize: 13 }, historyAnswer: { color: '#effaf2', fontSize: 17, fontWeight: '600' }, deleteHistory: { color: '#ff777b', textAlign: 'center', padding: 18 },
