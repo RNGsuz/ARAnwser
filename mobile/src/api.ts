@@ -8,6 +8,7 @@ function normalizeBaseUrl(value: string | undefined): string | undefined {
 
 const baseUrl = normalizeBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
 const token = process.env.EXPO_PUBLIC_CLIENT_TOKEN ?? '';
+const requestTimeoutMs = 25_000;
 
 function headers(json = false): Record<string, string> {
   return {
@@ -24,9 +25,29 @@ async function readResponse(response: Response): Promise<DocumentAnswer> {
     session_expired: 'Das Foto ist abgelaufen. Bitte fotografiere es erneut.',
     ai_service_unavailable: 'Der KI-Dienst ist gerade nicht erreichbar.',
     unauthorized: 'Client-Token und Backend-Konfiguration stimmen nicht überein.',
+    valid_image_required: 'Das Foto konnte nicht gelesen werden. Bitte nimm es erneut auf.',
+    image_too_large: 'Das Foto ist zu groß. Bitte nimm es erneut auf.',
+    audio_too_large: 'Die Sprachaufnahme ist zu lang. Bitte stelle die Frage kürzer.',
+    invalid_follow_up: 'Die Folgefrage war leer oder ungültig.',
+    question_or_audio_required: 'Es wurde keine Frage erkannt.',
   };
   const serverDetail = typeof body.error === 'string' && body.error.length <= 500 ? body.error : null;
   throw new Error(messages[body.error] ?? serverDetail ?? `Anfrage fehlgeschlagen (${response.status}).`);
+}
+
+async function request(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === 'AbortError') {
+      throw new Error('Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.');
+    }
+    throw new Error('Keine Verbindung zum Backend. Prüfe WLAN und Server und versuche es erneut.');
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function createQuery(
@@ -43,13 +64,13 @@ export async function createQuery(
   if (options.question) form.append('question', options.question);
   form.append('sessionId', sessionId);
   form.append('locale', 'de-DE');
-  const response = await fetch(`${baseUrl}/v1/queries`, { method: 'POST', headers: headers(), body: form });
+  const response = await request(`${baseUrl}/v1/queries`, { method: 'POST', headers: headers(), body: form });
   return readResponse(response);
 }
 
 export async function createFollowUp(sessionId: string, question: string): Promise<DocumentAnswer> {
   if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
-  const response = await fetch(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
+  const response = await request(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
     method: 'POST',
     headers: headers(true),
     body: JSON.stringify({ question, locale: 'de-DE' }),
@@ -62,7 +83,7 @@ export async function createVoiceFollowUp(sessionId: string, audioUri: string): 
   const form = new FormData();
   form.append('audio', { uri: audioUri, name: 'follow-up.m4a', type: 'audio/mp4' } as unknown as Blob);
   form.append('locale', 'de-DE');
-  const response = await fetch(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
+  const response = await request(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
     method: 'POST', headers: headers(), body: form,
   });
   return readResponse(response);
@@ -70,5 +91,5 @@ export async function createVoiceFollowUp(sessionId: string, audioUri: string): 
 
 export async function deleteSession(sessionId: string): Promise<void> {
   if (!baseUrl) return;
-  await fetch(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE', headers: headers() });
+  await request(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE', headers: headers() });
 }

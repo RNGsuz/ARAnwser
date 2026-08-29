@@ -25,6 +25,8 @@ function newSessionId(): string {
 
 export default function App() {
   const camera = useRef<CameraView>(null);
+  const requestActive = useRef(false);
+  const retryAction = useRef<(() => Promise<void>) | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [state, setState] = useState<AssistantState>('idle');
@@ -47,6 +49,7 @@ export default function App() {
 
   async function captureDocument() {
     try {
+      retryAction.current = null;
       setError(null);
       Speech.stop();
       if (!cameraPermission?.granted && !(await requestCameraPermission()).granted) {
@@ -104,18 +107,15 @@ export default function App() {
     mode: 'solve' | 'read' = 'solve',
   ) {
     if (!imageUri || (!fromCapture && state !== 'captured')) return;
-    try {
-      setState('processing');
-      await acceptAnswer(await createQuery(imageUri, targetSession, {
-        question: mode === 'read'
-          ? 'Was steht auf dem Bild? Gib den deutlich lesbaren Hauptinhalt knapp und originalgetreu wieder. Löse oder interpretiere keine Aufgabe, außer es ist zum Verständnis nötig.'
-          : settings.explainSteps
-            ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere und beschreibe sie knapp, damit ich eine auswählen kann.'
-            : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere sie knapp, damit ich eine auswählen kann.',
-      }));
-    } catch (cause) {
-      fail(cause);
-    }
+    const action = () => createQuery(imageUri, targetSession, {
+      question: mode === 'read'
+        ? 'Was steht auf dem Bild? Gib den deutlich lesbaren Hauptinhalt knapp und originalgetreu wieder. Löse oder interpretiere keine Aufgabe, außer es ist zum Verständnis nötig.'
+        : settings.explainSteps
+          ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere und beschreibe sie knapp, damit ich eine auswählen kann.'
+          : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere sie knapp, damit ich eine auswählen kann.',
+    });
+    retryAction.current = () => executeRequest(action);
+    await executeRequest(action);
   }
 
   async function stopAndSubmit() {
@@ -123,10 +123,12 @@ export default function App() {
     try {
       await recorder.stop();
       if (!recorder.uri) throw new Error('Keine Spracheingabe aufgenommen.');
-      setState('processing');
-      await acceptAnswer(recordingPurpose === 'followUp'
-        ? await createVoiceFollowUp(currentSession, recorder.uri)
-        : await createQuery(photoUri, currentSession, { audioUri: recorder.uri }));
+      const audioUri = recorder.uri;
+      const action = () => recordingPurpose === 'followUp'
+        ? createVoiceFollowUp(currentSession, audioUri)
+        : createQuery(photoUri, currentSession, { audioUri });
+      retryAction.current = () => executeRequest(action);
+      await executeRequest(action);
     } catch (cause) {
       fail(cause);
     }
@@ -135,12 +137,23 @@ export default function App() {
   async function submitFollowUp() {
     const question = followUp.trim();
     if (!question || !answer) return;
+    setFollowUp('');
+    const action = () => createFollowUp(currentSession, question);
+    retryAction.current = () => executeRequest(action);
+    await executeRequest(action);
+  }
+
+  async function executeRequest(action: () => Promise<DocumentAnswer>) {
+    if (requestActive.current) return;
+    requestActive.current = true;
     try {
-      setFollowUp('');
+      setError(null);
       setState('processing');
-      await acceptAnswer(await createFollowUp(currentSession, question));
+      await acceptAnswer(await action());
     } catch (cause) {
       fail(cause);
+    } finally {
+      requestActive.current = false;
     }
   }
 
@@ -162,6 +175,7 @@ export default function App() {
   }
 
   async function acceptAnswer(result: DocumentAnswer) {
+    retryAction.current = null;
     setAnswer(result);
     setCurrentSession(result.sessionId);
     setState('answer');
@@ -186,6 +200,7 @@ export default function App() {
     setAnswer(null);
     setPhotoUri(null);
     setError(null);
+    retryAction.current = null;
     setCurrentSession(newSessionId());
   }
 
@@ -247,6 +262,10 @@ export default function App() {
               </Pressable>
               <Pressable style={styles.secondaryButton} onPress={() => startVoiceQuestion()} onLongPress={cancel}><Text style={styles.secondaryButtonText}>Eigene Frage sprechen</Text></Pressable>
             </View>
+          ) : state === 'error' && retryAction.current ? (
+            <Pressable style={styles.primaryButton} onPress={() => retryAction.current?.()} onLongPress={cancel}>
+              <Text style={styles.primaryButtonText}>↻  Anfrage erneut versuchen</Text>
+            </Pressable>
           ) : answer?.needsRetake ? (
             <Pressable style={[styles.primaryButton, styles.retakeButton]} onPress={captureDocument} onLongPress={cancel}>
               <Text style={styles.primaryButtonText}>↻  Foto erneut aufnehmen</Text>
