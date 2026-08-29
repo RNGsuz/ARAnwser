@@ -3,6 +3,7 @@ export type AssistantState =
   | 'capturing'
   | 'captured'
   | 'listening'
+  | 'reviewing'
   | 'processing'
   | 'answer'
   | 'error';

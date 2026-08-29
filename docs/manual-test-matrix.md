@@ -25,6 +25,7 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 - Deutsche, englische und gemischte Aufgaben testen.
 - Eine undeutliche Sprachfrage muss zu einer Rückfrage oder verständlichen
   Fehlermeldung führen.
+- Transkript vor dem Senden prüfen, manuell korrigieren und erneut aufnehmen.
 - „Warum?“, „Löse Aufgabe 2“ und „Was steht rechts unten?“ jeweils als Text und
   Sprache testen.
 - Prüfen, dass eine neue Aufnahme den alten Bildkontext ersetzt.

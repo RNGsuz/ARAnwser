@@ -9,14 +9,14 @@ import {
   SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
-import { createFollowUp, createQuery, createVoiceFollowUp, deleteSession } from './src/api';
+import { createFollowUp, createQuery, deleteSession, transcribeAudio } from './src/api';
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
 import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
 
 const labels: Record<AssistantState, string> = {
-  idle: 'Bereit', capturing: 'Foto wird aufgenommen …', captured: 'Foto bereit', listening: 'Ich höre zu …',
-  processing: 'Dokument wird geprüft …', answer: 'Antwort bereit', error: 'Fehler',
+  idle: 'Bereit', capturing: 'Foto wird aufgenommen …', captured: 'Foto bereit', listening: 'Ich höre zu …', reviewing: 'Frage prüfen',
+  processing: 'Anfrage wird verarbeitet …', answer: 'Antwort bereit', error: 'Fehler',
 };
 
 function newSessionId(): string {
@@ -42,6 +42,7 @@ export default function App() {
   const [currentSession, setCurrentSession] = useState(newSessionId());
   const [followUp, setFollowUp] = useState('');
   const [recordingPurpose, setRecordingPurpose] = useState<'query' | 'followUp'>('query');
+  const [pendingTranscript, setPendingTranscript] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'assistant' | 'settings'>('assistant');
@@ -130,14 +131,44 @@ export default function App() {
       await recorder.stop();
       if (!recorder.uri) throw new Error('Keine Spracheingabe aufgenommen.');
       const audioUri = recorder.uri;
-      const action = () => recordingPurpose === 'followUp'
-        ? createVoiceFollowUp(currentSession, audioUri)
-        : createQuery(photoUri, currentSession, { audioUri });
-      retryAction.current = () => executeRequest(action);
-      await executeRequest(action);
+      retryAction.current = () => transcribeRecordedQuestion(audioUri);
+      await transcribeRecordedQuestion(audioUri);
     } catch (cause) {
       fail(cause);
     }
+  }
+
+  async function transcribeRecordedQuestion(audioUri: string) {
+    if (requestActive.current) return;
+    requestActive.current = true;
+    try {
+      setError(null);
+      setState('processing');
+      setPendingTranscript(await transcribeAudio(audioUri));
+      retryAction.current = null;
+      setState('reviewing');
+    } catch (cause) {
+      fail(cause);
+    } finally {
+      requestActive.current = false;
+    }
+  }
+
+  async function confirmTranscript() {
+    const question = pendingTranscript.trim();
+    if (!question || !photoUri) return;
+    setPendingTranscript('');
+    const action = () => recordingPurpose === 'followUp'
+      ? createFollowUp(currentSession, question)
+      : createQuery(photoUri, currentSession, { question });
+    retryAction.current = () => executeRequest(action);
+    await executeRequest(action);
+  }
+
+  async function recordTranscriptAgain() {
+    setPendingTranscript('');
+    if (recordingPurpose === 'followUp') await startVoiceFollowUp(true);
+    else await startVoiceQuestion(photoUri, true);
   }
 
   async function submitFollowUp() {
@@ -163,8 +194,8 @@ export default function App() {
     }
   }
 
-  async function startVoiceFollowUp() {
-    if (!answer || state !== 'answer') return;
+  async function startVoiceFollowUp(fromReview = false) {
+    if (!answer || (!fromReview && state !== 'answer')) return;
     try {
       Speech.stop();
       if (!(await requestRecordingPermissionsAsync()).granted) {
@@ -202,6 +233,7 @@ export default function App() {
     setAnswer(null);
     setPhotoUri(null);
     setError(null);
+    setPendingTranscript('');
     retryAction.current = null;
     setCurrentSession(newSessionId());
   }
@@ -250,7 +282,25 @@ export default function App() {
           {state === 'processing' || state === 'capturing' ? (
             <View style={styles.loading}><ActivityIndicator color="#70ff9b" /><Text style={styles.muted}>{labels[state]}</Text></View>
           ) : state === 'listening' ? (
-            <Pressable style={[styles.primaryButton, styles.stopButton]} onPress={stopAndSubmit} onLongPress={cancel}><Text style={styles.primaryButtonText}>■  Frage beenden und senden</Text></Pressable>
+            <Pressable style={[styles.primaryButton, styles.stopButton]} onPress={stopAndSubmit} onLongPress={cancel}><Text style={styles.primaryButtonText}>■  Frage beenden und prüfen</Text></Pressable>
+          ) : state === 'reviewing' ? (
+            <View style={styles.transcriptPanel}>
+              <Text style={styles.transcriptLabel}>So wurde deine Frage verstanden</Text>
+              <TextInput
+                value={pendingTranscript}
+                onChangeText={setPendingTranscript}
+                multiline
+                autoFocus
+                style={styles.transcriptInput}
+                accessibilityLabel="Erkannter Fragetext"
+              />
+              <Pressable style={styles.primaryButton} onPress={confirmTranscript} disabled={!pendingTranscript.trim()}>
+                <Text style={styles.primaryButtonText}>Frage bestätigen und senden</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={recordTranscriptAgain} onLongPress={cancel}>
+                <Text style={styles.secondaryButtonText}>Noch einmal sprechen</Text>
+              </Pressable>
+            </View>
           ) : state === 'captured' ? (
             <View style={styles.choicePanel}>
               <Text style={styles.choiceTitle}>Was möchtest du tun?</Text>
@@ -289,7 +339,7 @@ export default function App() {
                 <Text style={styles.confidence}>Sicherheit: {Math.round(answer.confidence * 100)} %</Text>
                 <View style={styles.followUpRow}>
                   <TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Folgefrage zum selben Bild" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" />
-                  <Pressable style={styles.voiceFollowUpButton} onPress={startVoiceFollowUp} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable>
+                  <Pressable style={styles.voiceFollowUpButton} onPress={() => startVoiceFollowUp()} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable>
                   <Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable>
                 </View>
               </View>
@@ -438,6 +488,7 @@ const styles = StyleSheet.create({
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
   choicePanel: { gap: 11, padding: 14, borderRadius: 20, backgroundColor: '#101c15' }, choiceTitle: { color: '#dce9e0', fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
+  transcriptPanel: { gap: 11, padding: 15, borderRadius: 20, backgroundColor: '#101c15', borderWidth: 1, borderColor: '#2d4938' }, transcriptLabel: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, transcriptInput: { minHeight: 86, borderRadius: 15, padding: 13, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#3c5947', fontSize: 16, lineHeight: 23, textAlignVertical: 'top' },
   quickReadButton: { minHeight: 58, borderRadius: 18, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#1a2a21', borderWidth: 1, borderColor: '#365041' }, quickReadIcon: { color: '#70ff9b', fontSize: 18, fontWeight: '900' }, quickReadCopy: { flex: 1 }, quickReadTitle: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, quickReadDescription: { color: '#8fa097', fontSize: 11, marginTop: 2 },
   secondaryButton: { minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#55ed80' }, secondaryButtonText: { color: '#70ff9b', fontSize: 16, fontWeight: '700' },
   loading: { height: 58, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center' }, muted: { color: '#9aaba0', fontSize: 15 },

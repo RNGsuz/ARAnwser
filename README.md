@@ -48,9 +48,11 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
    wählen. Der Auswahlbildschirm lässt sich in den Einstellungen deaktivieren.
 3. Eine Hörprobe befindet sich im Tab **Einstellungen**; die Lautstärke wird mit
    den Lauter-/Leiser-Tasten des Handys geregelt.
-4. Text- oder Sprachfolgefragen beziehen sich auf das letzte Foto. Sind mehrere
-   Aufgaben sichtbar, listet der Assistent sie zuerst zur Auswahl auf.
-5. Bei unleserlichem Inhalt zeigt die App einen konkreten Aufnahmehinweis.
+4. Nach einer Sprachfrage zeigt die App zunächst das Cloud-Transkript. Es kann vor
+   dem Senden korrigiert oder neu aufgenommen werden.
+5. Text- oder Sprachfolgefragen beziehen sich auf das letzte Foto. Sind mehrere
+   unabhängige Aufgaben sichtbar, listet der Assistent sie zuerst zur Auswahl auf.
+6. Bei unleserlichem Inhalt zeigt die App einen konkreten Aufnahmehinweis.
 
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**

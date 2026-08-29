@@ -60,6 +60,20 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
 
   app.get("/health", async () => ({ status: "ok" }));
 
+  app.post("/v1/transcriptions", async (request, reply) => {
+    let audio: { data: Buffer; mime: string; filename: string } | undefined;
+    for await (const part of request.parts()) {
+      if (part.type === "file" && part.fieldname === "audio") {
+        audio = { data: await part.toBuffer(), mime: part.mimetype, filename: part.filename || "question.m4a" };
+      }
+    }
+    if (!audio) return reply.code(400).send({ error: "audio_required" });
+    if (audio.data.length > config.MAX_AUDIO_BYTES) return reply.code(413).send({ error: "audio_too_large" });
+    const transcript = (await vision.transcribe(audio.data, audio.filename, audio.mime)).trim();
+    if (!transcript) return reply.code(422).send({ error: "speech_not_recognized" });
+    return { transcript };
+  });
+
   app.post("/v1/queries", async (request, reply) => {
     const fields: Record<string, string> = {};
     let image: { data: Buffer; mime: string } | undefined;

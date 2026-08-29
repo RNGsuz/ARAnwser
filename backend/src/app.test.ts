@@ -52,6 +52,26 @@ describe("query API", () => {
     await app.close();
   });
 
+  it("returns a transcript before a query is submitted", async () => {
+    const vision: VisionService = {
+      answer: vi.fn(),
+      transcribe: vi.fn().mockResolvedValue("  Was ist der Median?  "),
+    };
+    const app = await buildApp(config, vision);
+    const boundary = "transcription-boundary";
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/transcriptions",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${boundary}` },
+      payload: audioMultipart(boundary),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ transcript: "Was ist der Median?" });
+    expect(vision.answer).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it("answers and supports an in-memory follow-up", async () => {
     const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), transcribe: vi.fn() };
     const app = await buildApp(config, vision);

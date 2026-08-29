@@ -17,9 +17,9 @@ function headers(json = false): Record<string, string> {
   };
 }
 
-async function readResponse(response: Response): Promise<DocumentAnswer> {
+async function readResponse<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
-  if (response.ok) return body as DocumentAnswer;
+  if (response.ok) return body as T;
   const messages: Record<string, string> = {
     daily_limit_reached: 'Das tägliche Testlimit ist erreicht.',
     session_expired: 'Das Foto ist abgelaufen. Bitte fotografiere es erneut.',
@@ -30,9 +30,20 @@ async function readResponse(response: Response): Promise<DocumentAnswer> {
     audio_too_large: 'Die Sprachaufnahme ist zu lang. Bitte stelle die Frage kürzer.',
     invalid_follow_up: 'Die Folgefrage war leer oder ungültig.',
     question_or_audio_required: 'Es wurde keine Frage erkannt.',
+    audio_required: 'Es wurde keine Sprachaufnahme übertragen.',
+    speech_not_recognized: 'Die Sprache wurde nicht sicher erkannt. Bitte sprich die Frage erneut.',
   };
   const serverDetail = typeof body.error === 'string' && body.error.length <= 500 ? body.error : null;
   throw new Error(messages[body.error] ?? serverDetail ?? `Anfrage fehlgeschlagen (${response.status}).`);
+}
+
+export async function transcribeAudio(audioUri: string): Promise<string> {
+  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
+  const form = new FormData();
+  form.append('audio', { uri: audioUri, name: 'question.m4a', type: 'audio/mp4' } as unknown as Blob);
+  const response = await request(`${baseUrl}/v1/transcriptions`, { method: 'POST', headers: headers(), body: form });
+  const result = await readResponse<{ transcript: string }>(response);
+  return result.transcript;
 }
 
 async function request(url: string, init: RequestInit): Promise<Response> {
