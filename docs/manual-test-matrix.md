@@ -35,7 +35,9 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 
 - Automatische Sprachfrage, direkter Modus und Auswahl nach Foto testen.
 - Vorlesen ein- und ausschalten.
-- Lautstärke 25, 50, 75 und 100 Prozent inklusive Hörprobe vergleichen.
+- Nach einer Sprachfrage prüfen, dass Antwort und Hörprobe über den normalen
+  Medien-/Lautsprecherpfad ausgegeben werden.
+- Lauter-/Leiser-Tasten während der Hörprobe testen.
 - Eine neue Aufnahme muss laufende Sprache stoppen.
 - Unleserliche Aufnahmen dürfen nicht im Verlauf erscheinen.
 - Einzelnes und vollständiges Löschen des Verlaufs prüfen.

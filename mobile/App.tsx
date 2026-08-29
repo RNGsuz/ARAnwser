@@ -23,6 +23,12 @@ function newSessionId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
+async function speakThroughMediaOutput(text: string): Promise<void> {
+  Speech.stop();
+  await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+  Speech.speak(text, { language: 'de-DE', rate: 0.95 });
+}
+
 export default function App() {
   const camera = useRef<CameraView>(null);
   const requestActive = useRef(false);
@@ -184,11 +190,7 @@ export default function App() {
       setHistory(await loadHistory());
     }
     if (settings.speakAnswers) {
-      Speech.speak(result.spokenAnswer, {
-        language: 'de-DE',
-        rate: 0.95,
-        volume: settings.speechVolume,
-      });
+      await speakThroughMediaOutput(result.spokenAnswer);
     }
   }
 
@@ -350,67 +352,19 @@ function SettingsScreen({ settings, updateSetting }: {
       <View style={styles.settingsGroup}>
         <Text style={styles.groupTitle}>Antwort</Text>
         <SettingRow title="Antwort vorlesen" description="Gibt die ausführliche Antwort über die Handy-Lautsprecher aus." value={settings.speakAnswers} onValueChange={(value) => updateSetting('speakAnswers', value)} />
-        <VolumeSetting
-          value={settings.speechVolume}
-          disabled={!settings.speakAnswers}
-          onValueChange={(value) => updateSetting('speechVolume', value)}
-          onPreview={() => {
-            Speech.stop();
-            Speech.speak('So laut wird die nächste Antwort vorgelesen.', {
-              language: 'de-DE',
-              rate: 0.95,
-              volume: settings.speechVolume,
-            });
-          }}
-        />
+        <View style={[styles.audioOutputSetting, !settings.speakAnswers && styles.settingDisabled]}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingTitle}>Ausgabelautstärke</Text>
+            <Text style={styles.settingDescription}>Wird über die Lauter-/Leiser-Tasten des Handys geregelt.</Text>
+          </View>
+          <Pressable style={styles.previewButton} onPress={() => speakThroughMediaOutput('So laut wird die nächste Antwort vorgelesen.')} disabled={!settings.speakAnswers}>
+            <Text style={styles.previewButtonText}>Hörprobe</Text>
+          </Pressable>
+        </View>
         <SettingRow title="Lösungsweg erklären" description="Fordert bei direkten Aufgaben zusätzlich eine kurze Erklärung an." value={settings.explainSteps} onValueChange={(value) => updateSetting('explainSteps', value)} />
         <SettingRow title="Verlauf speichern" description="Speichert Frage und Antwort lokal, niemals das Foto." value={settings.saveHistory} onValueChange={(value) => updateSetting('saveHistory', value)} />
       </View>
     </ScrollView>
-  );
-}
-
-const volumeLevels = [0.25, 0.5, 0.75, 1] as const;
-
-function VolumeSetting({ value, disabled, onValueChange, onPreview }: {
-  value: number;
-  disabled: boolean;
-  onValueChange: (value: number) => void;
-  onPreview: () => void;
-}) {
-  return (
-    <View style={[styles.volumeSetting, disabled && styles.settingDisabled]}>
-      <View style={styles.volumeHeader}>
-        <View style={styles.settingCopy}>
-          <Text style={styles.settingTitle}>Lautstärke</Text>
-          <Text style={styles.settingDescription}>Regelt die Lautstärke der gesprochenen Antworten.</Text>
-        </View>
-        <Text style={styles.volumeValue}>{Math.round(value * 100)} %</Text>
-      </View>
-      <View style={styles.volumeControls}>
-        <View style={styles.volumeLevels}>
-          {volumeLevels.map((level) => {
-            const selected = Math.abs(value - level) < 0.01;
-            return (
-              <Pressable
-                key={level}
-                style={[styles.volumeButton, selected && styles.volumeButtonActive]}
-                onPress={() => onValueChange(level)}
-                disabled={disabled}
-                accessibilityRole="button"
-                accessibilityLabel={`Lautstärke ${Math.round(level * 100)} Prozent`}
-                accessibilityState={{ selected, disabled }}
-              >
-                <Text style={[styles.volumeButtonText, selected && styles.volumeButtonTextActive]}>{Math.round(level * 100)}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Pressable style={styles.previewButton} onPress={onPreview} disabled={disabled}>
-          <Text style={styles.previewButtonText}>Hörprobe</Text>
-        </Pressable>
-      </View>
-    </View>
   );
 }
 
@@ -472,8 +426,7 @@ const styles = StyleSheet.create({
   settingsContent: { padding: 20, paddingBottom: 42, gap: 8 }, settingsIntro: { color: '#93a399', fontSize: 15, lineHeight: 22, marginBottom: 18 },
   settingsGroup: { backgroundColor: '#111d16', borderRadius: 22, paddingHorizontal: 16, marginBottom: 14 }, groupTitle: { color: '#70ff9b', fontSize: 12, letterSpacing: 1.1, fontWeight: '800', paddingTop: 17, paddingBottom: 5 },
   settingRow: { minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 14, borderTopWidth: 1, borderTopColor: '#25342b' }, settingDisabled: { opacity: 0.42 }, settingCopy: { flex: 1, paddingVertical: 13 }, settingTitle: { color: '#effaf2', fontSize: 16, fontWeight: '700' }, settingDescription: { color: '#8d9d93', fontSize: 12, lineHeight: 17, marginTop: 4 },
-  volumeSetting: { borderTopWidth: 1, borderTopColor: '#25342b', paddingBottom: 16 }, volumeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 }, volumeValue: { color: '#70ff9b', fontSize: 14, fontWeight: '800' },
-  volumeControls: { flexDirection: 'row', alignItems: 'center', gap: 10 }, volumeLevels: { flex: 1, flexDirection: 'row', gap: 7 }, volumeButton: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: '#34473b', alignItems: 'center', justifyContent: 'center' }, volumeButtonActive: { backgroundColor: '#55ed80', borderColor: '#55ed80' }, volumeButtonText: { color: '#9baba1', fontSize: 12, fontWeight: '700' }, volumeButtonTextActive: { color: '#07100c' }, previewButton: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, previewButtonText: { color: '#dff5e5', fontSize: 12, fontWeight: '700' },
+  audioOutputSetting: { minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#25342b' }, previewButton: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, previewButtonText: { color: '#dff5e5', fontSize: 12, fontWeight: '700' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, eyebrow: { color: '#70ff9b', fontSize: 11, letterSpacing: 1.5, fontWeight: '700' },
   title: { color: '#f3fff7', fontSize: 32, fontWeight: '800', marginTop: 2 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#17231c', alignItems: 'center', justifyContent: 'center' }, iconText: { color: '#70ff9b', fontSize: 25 },
   cameraFrame: { height: 265, borderRadius: 26, overflow: 'hidden', backgroundColor: '#111', borderWidth: 1, borderColor: '#27372e' }, camera: { width: '100%', height: '100%' },

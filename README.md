@@ -46,7 +46,8 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
 1. Foto bewusst per Taste aufnehmen und das Dokument innerhalb des Rahmens halten.
 2. Zwischen direkter Lösung, **Was steht dort?** und einer eigenen Sprachfrage
    wählen. Der Auswahlbildschirm lässt sich in den Einstellungen deaktivieren.
-3. Lautstärke und Hörprobe befinden sich im Tab **Einstellungen**.
+3. Eine Hörprobe befindet sich im Tab **Einstellungen**; die Lautstärke wird mit
+   den Lauter-/Leiser-Tasten des Handys geregelt.
 4. Text- oder Sprachfolgefragen beziehen sich auf das letzte Foto. Sind mehrere
    Aufgaben sichtbar, listet der Assistent sie zuerst zur Auswahl auf.
 5. Bei unleserlichem Inhalt zeigt die App einen konkreten Aufnahmehinweis.

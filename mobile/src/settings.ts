@@ -4,7 +4,6 @@ export interface AppSettings {
   showChoiceAfterPhoto: boolean;
   voiceQuestionByDefault: boolean;
   speakAnswers: boolean;
-  speechVolume: number;
   explainSteps: boolean;
   saveHistory: boolean;
 }
@@ -13,7 +12,6 @@ export const defaultSettings: AppSettings = {
   showChoiceAfterPhoto: true,
   voiceQuestionByDefault: false,
   speakAnswers: true,
-  speechVolume: 0.75,
   explainSteps: true,
   saveHistory: true,
 };
