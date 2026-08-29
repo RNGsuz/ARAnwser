@@ -12,15 +12,16 @@ export const answerSchema = z.object({
 export type Answer = z.infer<typeof answerSchema>;
 
 export interface QueryInput {
-  image: Buffer;
-  imageMimeType: string;
+  image?: Buffer;
+  imageMimeType?: string;
   question: string;
-  ocrText: string;
+  ocrText?: string;
   locale: string;
+  previousQuestion?: string;
+  previousAnswer?: string;
 }
 
 export interface VisionService {
   transcribe(audio: Buffer, filename: string, mimeType: string): Promise<string>;
   answer(input: QueryInput): Promise<Answer>;
 }
-

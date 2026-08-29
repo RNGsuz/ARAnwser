@@ -72,6 +72,36 @@ describe("query API", () => {
     await app.close();
   });
 
+  it("answers a general question without requiring an image", async () => {
+    const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), transcribe: vi.fn() };
+    const app = await buildApp(config, vision);
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { question: "Warum ist der Himmel blau?", locale: "de-DE", sessionId: "general-session" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().sessionId).toBe("general-session");
+    expect(vision.answer).toHaveBeenCalledWith({ question: "Warum ist der Himmel blau?", locale: "de-DE" });
+
+    const followUp = await app.inject({
+      method: "POST",
+      url: "/v1/queries/general-session/follow-ups",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { question: "Kannst du es einfacher erklären?" },
+    });
+    expect(followUp.statusCode).toBe(200);
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({
+      question: "Kannst du es einfacher erklären?",
+      locale: "de-DE",
+      previousQuestion: "Warum ist der Himmel blau?",
+      previousAnswer: answer.spokenAnswer,
+    }));
+    await app.close();
+  });
+
   it("answers and supports an in-memory follow-up", async () => {
     const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), transcribe: vi.fn() };
     const app = await buildApp(config, vision);

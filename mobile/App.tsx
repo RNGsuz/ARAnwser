@@ -9,7 +9,7 @@ import {
   SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
-import { createFollowUp, createQuery, deleteSession, transcribeAudio } from './src/api';
+import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, transcribeAudio } from './src/api';
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
 import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
@@ -41,7 +41,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState(newSessionId());
   const [followUp, setFollowUp] = useState('');
-  const [recordingPurpose, setRecordingPurpose] = useState<'query' | 'followUp'>('query');
+  const [recordingPurpose, setRecordingPurpose] = useState<'query' | 'followUp' | 'general'>('query');
   const [pendingTranscript, setPendingTranscript] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyVisible, setHistoryVisible] = useState(false);
@@ -107,6 +107,31 @@ export default function App() {
     }
   }
 
+  async function startGeneralQuestion(fromReview = false) {
+    if (!fromReview && state !== 'idle' && state !== 'answer' && state !== 'error') return;
+    try {
+      retryAction.current = null;
+      setError(null);
+      Speech.stop();
+      if (!(await requestRecordingPermissionsAsync()).granted) {
+        throw new Error('Mikrofonzugriff wurde nicht erlaubt.');
+      }
+      if (!fromReview) {
+        if (answer) await deleteSession(currentSession).catch(() => undefined);
+        setAnswer(null);
+        setPhotoUri(null);
+        setCurrentSession(newSessionId());
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecordingPurpose('general');
+      setState('listening');
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
   async function submitDirectly(
     imageUri = photoUri,
     targetSession = currentSession,
@@ -126,7 +151,7 @@ export default function App() {
   }
 
   async function stopAndSubmit() {
-    if (state !== 'listening' || !photoUri) return;
+    if (state !== 'listening') return;
     try {
       await recorder.stop();
       if (!recorder.uri) throw new Error('Keine Spracheingabe aufgenommen.');
@@ -156,11 +181,13 @@ export default function App() {
 
   async function confirmTranscript() {
     const question = pendingTranscript.trim();
-    if (!question || !photoUri) return;
+    if (!question || (recordingPurpose === 'query' && !photoUri)) return;
     setPendingTranscript('');
     const action = () => recordingPurpose === 'followUp'
       ? createFollowUp(currentSession, question)
-      : createQuery(photoUri, currentSession, { question });
+      : recordingPurpose === 'general'
+        ? createGeneralQuestion(currentSession, question)
+        : createQuery(photoUri as string, currentSession, { question });
     retryAction.current = () => executeRequest(action);
     await executeRequest(action);
   }
@@ -168,6 +195,7 @@ export default function App() {
   async function recordTranscriptAgain() {
     setPendingTranscript('');
     if (recordingPurpose === 'followUp') await startVoiceFollowUp(true);
+    else if (recordingPurpose === 'general') await startGeneralQuestion(true);
     else await startVoiceQuestion(photoUri, true);
   }
 
@@ -323,7 +351,12 @@ export default function App() {
               <Text style={styles.primaryButtonText}>↻  Foto erneut aufnehmen</Text>
             </Pressable>
           ) : (
-            <Pressable style={styles.primaryButton} onPress={captureDocument} onLongPress={cancel}><Text style={styles.primaryButtonText}>{answer || error ? 'Neue Aufnahme' : 'Foto aufnehmen'}</Text></Pressable>
+            <View style={styles.mainActions}>
+              <Pressable style={styles.primaryButton} onPress={captureDocument} onLongPress={cancel}><Text style={styles.primaryButtonText}>{answer || error ? 'Neue Aufnahme' : 'Foto aufnehmen'}</Text></Pressable>
+              <Pressable style={styles.secondaryButton} onPress={() => startGeneralQuestion()} onLongPress={cancel}>
+                <Text style={styles.secondaryButtonText}>Frage stellen – ohne Foto</Text>
+              </Pressable>
+            </View>
           )}
 
           {answer ? (
@@ -345,7 +378,11 @@ export default function App() {
               </View>
             )
           ) : null}
-          {state !== 'idle' ? <Pressable onPress={cancel} onLongPress={cancel}><Text style={styles.cancel}>{answer ? 'Bild und Sitzungskontext löschen' : 'Sitzung verwerfen'}</Text></Pressable> : null}
+          {state !== 'idle' ? (
+            <Pressable onPress={cancel} onLongPress={cancel}>
+              <Text style={styles.cancel}>{answer ? (photoUri ? 'Bild und Sitzungskontext löschen' : 'Sitzungskontext löschen') : 'Sitzung verwerfen'}</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
       ) : (
@@ -487,6 +524,7 @@ const styles = StyleSheet.create({
   displayLabel: { position: 'absolute', top: 12, left: 20, color: '#3e9b5c', fontSize: 9, letterSpacing: 1.4 }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
+  mainActions: { gap: 11 },
   choicePanel: { gap: 11, padding: 14, borderRadius: 20, backgroundColor: '#101c15' }, choiceTitle: { color: '#dce9e0', fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
   transcriptPanel: { gap: 11, padding: 15, borderRadius: 20, backgroundColor: '#101c15', borderWidth: 1, borderColor: '#2d4938' }, transcriptLabel: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, transcriptInput: { minHeight: 86, borderRadius: 15, padding: 13, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#3c5947', fontSize: 16, lineHeight: 23, textAlignVertical: 'top' },
   quickReadButton: { minHeight: 58, borderRadius: 18, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#1a2a21', borderWidth: 1, borderColor: '#365041' }, quickReadIcon: { color: '#70ff9b', fontSize: 18, fontWeight: '900' }, quickReadCopy: { flex: 1 }, quickReadTitle: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, quickReadDescription: { color: '#8fa097', fontSize: 11, marginTop: 2 },

@@ -15,7 +15,11 @@ export class SessionStore {
 
   set(id: string, input: QueryInput): void {
     this.delete(id);
-    this.sessions.set(id, { ...input, image: Buffer.from(input.image), expiresAt: Date.now() + this.ttlMs });
+    this.sessions.set(id, {
+      ...input,
+      ...(input.image ? { image: Buffer.from(input.image) } : {}),
+      expiresAt: Date.now() + this.ttlMs,
+    });
   }
 
   get(id: string): QueryInput | undefined {
@@ -25,12 +29,20 @@ export class SessionStore {
       return undefined;
     }
     session.expiresAt = Date.now() + this.ttlMs;
-    return session;
+    return {
+      ...(session.image ? { image: session.image } : {}),
+      ...(session.imageMimeType ? { imageMimeType: session.imageMimeType } : {}),
+      ...(session.ocrText ? { ocrText: session.ocrText } : {}),
+      ...(session.previousQuestion ? { previousQuestion: session.previousQuestion } : {}),
+      ...(session.previousAnswer ? { previousAnswer: session.previousAnswer } : {}),
+      question: session.question,
+      locale: session.locale,
+    };
   }
 
   delete(id: string): boolean {
     const session = this.sessions.get(id);
-    if (session) session.image.fill(0);
+    if (session?.image) session.image.fill(0);
     return this.sessions.delete(id);
   }
 
@@ -46,4 +58,3 @@ export class SessionStore {
     }
   }
 }
-

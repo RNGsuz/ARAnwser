@@ -22,6 +22,10 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 
 ## Sprache und Kontext
 
+- **Frage stellen – ohne Foto** testen und sicherstellen, dass keine
+  Kameraberechtigung erforderlich ist.
+- Nach einer allgemeinen Antwort eine kontextuelle Folgefrage wie „Erkläre das
+  einfacher“ stellen.
 - Deutsche, englische und gemischte Aufgaben testen.
 - Eine undeutliche Sprachfrage muss zu einer Rückfrage oder verständlichen
   Fehlermeldung führen.

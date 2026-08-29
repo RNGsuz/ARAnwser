@@ -13,6 +13,10 @@ const followUpSchema = z.object({
   locale: z.string().trim().min(2).max(20).default("de-DE"),
 });
 
+const questionSchema = followUpSchema.extend({
+  sessionId: z.string().trim().min(1).max(200).optional(),
+});
+
 function authorized(header: string | undefined, expected?: string): boolean {
   if (!expected) return true;
   if (!header?.startsWith("Bearer ")) return false;
@@ -45,7 +49,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     if (!authorized(request.headers.authorization, config.CLIENT_TOKEN)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    if (request.method === "POST" && request.url.startsWith("/v1/queries")) {
+    if (request.method === "POST" && (request.url.startsWith("/v1/queries") || request.url === "/v1/questions")) {
       const today = new Date().toISOString().slice(0, 10);
       if (today !== usageDay) {
         usageDay = today;
@@ -72,6 +76,19 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     const transcript = (await vision.transcribe(audio.data, audio.filename, audio.mime)).trim();
     if (!transcript) return reply.code(422).send({ error: "speech_not_recognized" });
     return { transcript };
+  });
+
+  app.post("/v1/questions", async (request, reply) => {
+    const parsed = questionSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_question" });
+    const sessionId = parsed.data.sessionId || randomUUID();
+    const input: QueryInput = {
+      question: parsed.data.question,
+      locale: parsed.data.locale,
+    };
+    const answer = await vision.answer(input);
+    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answer.spokenAnswer });
+    return reply.code(201).send({ queryId: randomUUID(), sessionId, question: input.question, ...answer });
   });
 
   app.post("/v1/queries", async (request, reply) => {
@@ -108,7 +125,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       locale: (fields.locale || "de-DE").slice(0, 20),
     };
     const answer = await vision.answer(input);
-    sessions.set(sessionId, input);
+    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answer.spokenAnswer });
     return reply.code(201).send({ queryId: randomUUID(), sessionId, question, ...answer });
   });
 
@@ -135,7 +152,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     if (!previous) return reply.code(404).send({ error: "session_expired" });
     const input = { ...previous, question: parsed.data.question, locale: parsed.data.locale };
     const answer = await vision.answer(input);
-    sessions.set(id, input);
+    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answer.spokenAnswer });
     return { queryId: randomUUID(), sessionId: id, question: input.question, ...answer };
   });
 

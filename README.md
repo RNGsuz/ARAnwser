@@ -2,7 +2,8 @@
 
 Ein hardwareunabhängiger MVP für eine Display-Brille: Foto aufnehmen, eine klar
 sichtbare Aufgabe direkt lösen, den Inhalt mit „Was steht dort?“ erfassen oder
-optional eine eigene Frage sprechen. Folgefragen verwenden dasselbe Bild.
+optional eine eigene Frage sprechen. Allgemeine Fragen funktionieren auch ohne
+Foto; Folgefragen verwenden den letzten flüchtigen Sitzungskontext.
 
 ## Architektur
 
@@ -54,6 +55,9 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
    unabhängige Aufgaben sichtbar, listet der Assistent sie zuerst zur Auswahl auf.
 6. Bei unleserlichem Inhalt zeigt die App einen konkreten Aufnahmehinweis.
 
+Alternativ startet **Frage stellen – ohne Foto** direkt eine allgemeine
+Sprachfrage mit derselben Transkriptvorschau.
+
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**
 entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.
@@ -62,6 +66,10 @@ entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.
 
 - `POST /v1/queries`: multipart mit `image`, optional `audio`, `question`,
   `ocrText`, `locale` und `sessionId`.
+- `POST /v1/questions`: JSON mit `question`, `locale` und optional `sessionId`
+  für allgemeine Fragen ohne Foto.
+- `POST /v1/transcriptions`: multipart mit `audio`; liefert die editierbare
+  Textvorschau vor der eigentlichen Anfrage.
 - `POST /v1/queries/:id/follow-ups`: JSON mit `question` und optional `locale`
   oder multipart mit `audio` und `locale` für gesprochene Folgefragen.
 - `DELETE /v1/sessions/:id`: entfernt Bild und Sitzung sofort.

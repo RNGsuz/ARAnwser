@@ -32,6 +32,7 @@ async function readResponse<T>(response: Response): Promise<T> {
     question_or_audio_required: 'Es wurde keine Frage erkannt.',
     audio_required: 'Es wurde keine Sprachaufnahme übertragen.',
     speech_not_recognized: 'Die Sprache wurde nicht sicher erkannt. Bitte sprich die Frage erneut.',
+    invalid_question: 'Die Frage war leer oder ungültig.',
   };
   const serverDetail = typeof body.error === 'string' && body.error.length <= 500 ? body.error : null;
   throw new Error(messages[body.error] ?? serverDetail ?? `Anfrage fehlgeschlagen (${response.status}).`);
@@ -85,6 +86,16 @@ export async function createFollowUp(sessionId: string, question: string): Promi
     method: 'POST',
     headers: headers(true),
     body: JSON.stringify({ question, locale: 'de-DE' }),
+  });
+  return readResponse(response);
+}
+
+export async function createGeneralQuestion(sessionId: string, question: string): Promise<DocumentAnswer> {
+  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
+  const response = await request(`${baseUrl}/v1/questions`, {
+    method: 'POST',
+    headers: headers(true),
+    body: JSON.stringify({ question, sessionId, locale: 'de-DE' }),
   });
   return readResponse(response);
 }

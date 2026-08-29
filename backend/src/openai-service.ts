@@ -33,25 +33,39 @@ export class OpenAIVisionService implements VisionService {
   }
 
   async answer(input: QueryInput): Promise<Answer> {
-    const dataUrl = `data:${input.imageMimeType};base64,${input.image.toString("base64")}`;
+    const hasImage = Boolean(input.image && input.imageMimeType);
+    const previousContext = input.previousQuestion && input.previousAnswer
+      ? `Previous question: ${input.previousQuestion}\nPrevious answer: ${input.previousAnswer}\n\n`
+      : "";
+    const content: Array<Record<string, unknown>> = [{
+      type: "input_text",
+      text: hasImage
+        ? `${previousContext}Current question: ${input.question}\n\nLocal OCR (may contain errors):\n${input.ocrText || "[no OCR text]"}`
+        : `${previousContext}Current question: ${input.question}`,
+    }];
+    if (input.image && input.imageMimeType) {
+      content.push({
+        type: "input_image",
+        image_url: `data:${input.imageMimeType};base64,${input.image.toString("base64")}`,
+        detail: "high",
+      });
+    }
     const response = await this.client.responses.create({
       model: this.config.OPENAI_VISION_MODEL,
       store: false,
       reasoning: { effort: "low" },
       instructions: [
-        "You answer questions only from the photographed document or slide.",
-        "Never invent unreadable or absent content. If the evidence is insufficient, set needsRetake=true and explain how to improve the photo.",
-        "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one.",
-        "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve.",
-        "Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief paraphrased visible passages or visual observations.",
+        hasImage
+          ? "Answer only from the photographed document or slide. Never invent unreadable or absent content. If evidence is insufficient, set needsRetake=true and explain how to improve the photo."
+          : "Answer the general question directly. There is no photo to inspect, so always set needsRetake=false and retakeHint=null.",
+        hasImage ? "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one." : "",
+        hasImage ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
+        "Use the previous exchange only to resolve contextual follow-ups. Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief supporting points.",
         `Answer in locale ${input.locale}.`,
       ].join(" "),
       input: [{
         role: "user",
-        content: [
-          { type: "input_text", text: `Question: ${input.question}\n\nLocal OCR (may contain errors):\n${input.ocrText || "[no OCR text]"}` },
-          { type: "input_image", image_url: dataUrl, detail: "high" },
-        ],
+        content: content as never,
       }],
       text: {
         format: {
