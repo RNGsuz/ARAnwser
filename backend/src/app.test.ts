@@ -34,6 +34,15 @@ function multipart(boundary: string, fields: Record<string, string>, image = Buf
   return Buffer.concat(chunks);
 }
 
+function audioMultipart(boundary: string): Buffer {
+  return Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="locale"\r\n\r\nde-DE\r\n`),
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="audio"; filename="follow-up.m4a"\r\nContent-Type: audio/mp4\r\n\r\n`),
+    Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]),
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+}
+
 describe("query API", () => {
   it("requires authentication", async () => {
     const vision = { answer: vi.fn(), transcribe: vi.fn() } as unknown as VisionService;
@@ -67,6 +76,35 @@ describe("query API", () => {
 
     const removed = await app.inject({ method: "DELETE", url: "/v1/sessions/session-1", headers: { authorization: "Bearer 1234567890123456" } });
     expect(removed.statusCode).toBe(204);
+    await app.close();
+  });
+
+  it("transcribes a spoken follow-up and reuses the existing image", async () => {
+    const vision: VisionService = {
+      answer: vi.fn().mockResolvedValue(answer),
+      transcribe: vi.fn().mockResolvedValue("Löse Aufgabe zwei."),
+    };
+    const app = await buildApp(config, vision);
+    const firstBoundary = "initial-boundary";
+    await app.inject({
+      method: "POST",
+      url: "/v1/queries",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${firstBoundary}` },
+      payload: multipart(firstBoundary, { question: "Welche Aufgaben sind sichtbar?", sessionId: "spoken-session" }),
+    });
+
+    const followUpBoundary = "audio-boundary";
+    const followUp = await app.inject({
+      method: "POST",
+      url: "/v1/queries/spoken-session/follow-ups",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${followUpBoundary}` },
+      payload: audioMultipart(followUpBoundary),
+    });
+
+    expect(followUp.statusCode).toBe(200);
+    expect(followUp.json().question).toBe("Löse Aufgabe zwei.");
+    expect(vision.transcribe).toHaveBeenCalledOnce();
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({ question: "Löse Aufgabe zwei." }));
     await app.close();
   });
 

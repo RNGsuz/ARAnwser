@@ -57,6 +57,17 @@ export async function createFollowUp(sessionId: string, question: string): Promi
   return readResponse(response);
 }
 
+export async function createVoiceFollowUp(sessionId: string, audioUri: string): Promise<DocumentAnswer> {
+  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
+  const form = new FormData();
+  form.append('audio', { uri: audioUri, name: 'follow-up.m4a', type: 'audio/mp4' } as unknown as Blob);
+  form.append('locale', 'de-DE');
+  const response = await fetch(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
+    method: 'POST', headers: headers(), body: form,
+  });
+  return readResponse(response);
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   if (!baseUrl) return;
   await fetch(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE', headers: headers() });

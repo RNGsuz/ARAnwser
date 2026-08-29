@@ -9,7 +9,7 @@ import {
   SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
-import { createFollowUp, createQuery, deleteSession } from './src/api';
+import { createFollowUp, createQuery, createVoiceFollowUp, deleteSession } from './src/api';
 import { clearHistory, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
 import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
@@ -33,6 +33,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState(newSessionId());
   const [followUp, setFollowUp] = useState('');
+  const [recordingPurpose, setRecordingPurpose] = useState<'query' | 'followUp'>('query');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'assistant' | 'settings'>('assistant');
@@ -89,6 +90,7 @@ export default function App() {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      setRecordingPurpose('query');
       setState('listening');
     } catch (cause) {
       fail(cause);
@@ -108,8 +110,8 @@ export default function App() {
         question: mode === 'read'
           ? 'Was steht auf dem Bild? Gib den deutlich lesbaren Hauptinhalt knapp und originalgetreu wieder. Löse oder interpretiere keine Aufgabe, außer es ist zum Verständnis nötig.'
           : settings.explainSteps
-            ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz.'
-            : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild.',
+            ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere und beschreibe sie knapp, damit ich eine auswählen kann.'
+            : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere sie knapp, damit ich eine auswählen kann.',
       }));
     } catch (cause) {
       fail(cause);
@@ -122,7 +124,9 @@ export default function App() {
       await recorder.stop();
       if (!recorder.uri) throw new Error('Keine Spracheingabe aufgenommen.');
       setState('processing');
-      await acceptAnswer(await createQuery(photoUri, currentSession, { audioUri: recorder.uri }));
+      await acceptAnswer(recordingPurpose === 'followUp'
+        ? await createVoiceFollowUp(currentSession, recorder.uri)
+        : await createQuery(photoUri, currentSession, { audioUri: recorder.uri }));
     } catch (cause) {
       fail(cause);
     }
@@ -135,6 +139,23 @@ export default function App() {
       setFollowUp('');
       setState('processing');
       await acceptAnswer(await createFollowUp(currentSession, question));
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
+  async function startVoiceFollowUp() {
+    if (!answer || state !== 'answer') return;
+    try {
+      Speech.stop();
+      if (!(await requestRecordingPermissionsAsync()).granted) {
+        throw new Error('Mikrofonzugriff wurde nicht erlaubt.');
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecordingPurpose('followUp');
+      setState('listening');
     } catch (cause) {
       fail(cause);
     }
@@ -227,6 +248,7 @@ export default function App() {
               <Text style={styles.confidence}>Sicherheit: {Math.round(answer.confidence * 100)} %</Text>
               <View style={styles.followUpRow}>
                 <TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Folgefrage zum selben Bild" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" />
+                <Pressable style={styles.voiceFollowUpButton} onPress={startVoiceFollowUp} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable>
                 <Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable>
               </View>
             </View>
@@ -411,7 +433,7 @@ const styles = StyleSheet.create({
   secondaryButton: { minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#55ed80' }, secondaryButtonText: { color: '#70ff9b', fontSize: 16, fontWeight: '700' },
   loading: { height: 58, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center' }, muted: { color: '#9aaba0', fontSize: 15 },
   answerPanel: { borderRadius: 20, backgroundColor: '#111d16', padding: 18, gap: 13 }, answerText: { color: '#e8f3eb', fontSize: 17, lineHeight: 25 }, confidence: { color: '#8da096', fontSize: 12 },
-  followUpRow: { flexDirection: 'row', gap: 9 }, input: { flex: 1, minHeight: 50, borderRadius: 15, paddingHorizontal: 15, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#2d4035' }, sendButton: { width: 50, borderRadius: 15, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, sendText: { color: '#07100c', fontSize: 24, fontWeight: '800' }, cancel: { color: '#87958c', textAlign: 'center', padding: 10 },
+  followUpRow: { flexDirection: 'row', gap: 9 }, input: { flex: 1, minHeight: 50, borderRadius: 15, paddingHorizontal: 15, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#2d4035' }, voiceFollowUpButton: { width: 50, borderRadius: 15, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, voiceFollowUpText: { color: '#ff686d', fontSize: 17 }, sendButton: { width: 50, borderRadius: 15, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, sendText: { color: '#07100c', fontSize: 24, fontWeight: '800' }, cancel: { color: '#87958c', textAlign: 'center', padding: 10 },
   modal: { flex: 1, backgroundColor: '#08110d' }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#203027' }, modalTitle: { color: '#f3fff7', fontSize: 24, fontWeight: '800' }, modalAction: { color: '#70ff9b', fontSize: 16 },
   historyList: { padding: 20, gap: 12 }, historyEntry: { backgroundColor: '#121f17', padding: 16, borderRadius: 16, gap: 7 }, historyQuestion: { color: '#93a399', fontSize: 13 }, historyAnswer: { color: '#effaf2', fontSize: 17, fontWeight: '600' }, deleteHistory: { color: '#ff777b', textAlign: 'center', padding: 18 },
 });

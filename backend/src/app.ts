@@ -100,7 +100,22 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
 
   app.post("/v1/queries/:id/follow-ups", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const parsed = followUpSchema.safeParse(request.body);
+    let followUpInput: unknown = request.body;
+    if (request.isMultipart()) {
+      const fields: Record<string, string> = {};
+      let audio: { data: Buffer; mime: string; filename: string } | undefined;
+      for await (const part of request.parts()) {
+        if (part.type === "field") fields[part.fieldname] = String(part.value);
+        if (part.type === "file" && part.fieldname === "audio") {
+          audio = { data: await part.toBuffer(), mime: part.mimetype, filename: part.filename || "follow-up.m4a" };
+        }
+      }
+      if (audio && audio.data.length > config.MAX_AUDIO_BYTES) return reply.code(413).send({ error: "audio_too_large" });
+      let question = (fields.question || "").trim();
+      if (!question && audio) question = await vision.transcribe(audio.data, audio.filename, audio.mime);
+      followUpInput = { question, locale: fields.locale || "de-DE" };
+    }
+    const parsed = followUpSchema.safeParse(followUpInput);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_follow_up" });
     const previous = sessions.get(id);
     if (!previous) return reply.code(404).send({ error: "session_expired" });
