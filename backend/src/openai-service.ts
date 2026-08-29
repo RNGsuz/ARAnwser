@@ -2,7 +2,7 @@ import OpenAI, { toFile } from "openai";
 import { answerSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
 import type { Config } from "./config.js";
 
-const outputJsonSchema = {
+export const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: ["shortAnswer", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
@@ -23,14 +23,14 @@ const outputJsonSchema = {
             type: "object",
             additionalProperties: false,
             required: ["type", "markdown"],
-            properties: { type: { const: "text" }, markdown: { type: "string", maxLength: 4000 } },
+            properties: { type: { type: "string", const: "text" }, markdown: { type: "string", maxLength: 4000 } },
           },
           {
             type: "object",
             additionalProperties: false,
             required: ["type", "language", "code"],
             properties: {
-              type: { const: "code" },
+              type: { type: "string", const: "code" },
               language: { type: "string", maxLength: 40 },
               code: { type: "string", maxLength: 8000 },
             },
@@ -40,7 +40,7 @@ const outputJsonSchema = {
             additionalProperties: false,
             required: ["type", "latex", "displayMode"],
             properties: {
-              type: { const: "math" },
+              type: { type: "string", const: "math" },
               latex: { type: "string", maxLength: 2000 },
               displayMode: { type: "boolean" },
             },

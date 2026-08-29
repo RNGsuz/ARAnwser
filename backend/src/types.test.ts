@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { outputJsonSchema } from "./openai-service.js";
 import { answerSchema } from "./types.js";
 
 describe("structured answer schema", () => {
@@ -29,5 +30,10 @@ describe("structured answer schema", () => {
       retakeHint: null,
       blocks: [{ type: "html", value: "<b>unsafe</b>" }],
     })).toThrow();
+  });
+
+  it("declares a JSON type for every structured-output discriminator", () => {
+    const variants = outputJsonSchema.properties.blocks.items.anyOf;
+    expect(variants.map((variant) => variant.properties.type.type)).toEqual(["string", "string", "string"]);
   });
 });
