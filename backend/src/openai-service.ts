@@ -5,7 +5,7 @@ import type { Config } from "./config.js";
 const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["shortAnswer", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint"],
+  required: ["shortAnswer", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
   properties: {
     shortAnswer: { type: "string", maxLength: 240 },
     spokenAnswer: { type: "string", maxLength: 1600 },
@@ -13,6 +13,41 @@ const outputJsonSchema = {
     confidence: { type: "number", minimum: 0, maximum: 1 },
     needsRetake: { type: "boolean" },
     retakeHint: { type: ["string", "null"], maxLength: 240 },
+    blocks: {
+      type: "array",
+      minItems: 1,
+      maxItems: 12,
+      items: {
+        anyOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "markdown"],
+            properties: { type: { const: "text" }, markdown: { type: "string", maxLength: 4000 } },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "language", "code"],
+            properties: {
+              type: { const: "code" },
+              language: { type: "string", maxLength: 40 },
+              code: { type: "string", maxLength: 8000 },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "latex", "displayMode"],
+            properties: {
+              type: { const: "math" },
+              latex: { type: "string", maxLength: 2000 },
+              displayMode: { type: "boolean" },
+            },
+          },
+        ],
+      },
+    },
   },
 } as const;
 
@@ -61,6 +96,8 @@ export class OpenAIVisionService implements VisionService {
         hasImage ? "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one." : "",
         hasImage ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
         "Use the previous exchange only to resolve contextual follow-ups. Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief supporting points.",
+        "Build blocks in reading order. Use text blocks for prose and limited Markdown, code blocks for source code with its language, and math blocks for LaTeX. Never put code or display mathematics into a text block.",
+        "spokenAnswer must verbalize formulas and code naturally instead of reading raw LaTeX or punctuation.",
         `Answer in locale ${input.locale}.`,
       ].join(" "),
       input: [{

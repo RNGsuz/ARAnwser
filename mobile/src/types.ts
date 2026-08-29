@@ -8,6 +8,11 @@ export type AssistantState =
   | 'answer'
   | 'error';
 
+export type AnswerBlock =
+  | { type: 'text'; markdown: string }
+  | { type: 'code'; language: string; code: string }
+  | { type: 'math'; latex: string; displayMode: boolean };
+
 export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
@@ -18,6 +23,7 @@ export interface DocumentAnswer {
   confidence: number;
   needsRetake: boolean;
   retakeHint: string | null;
+  blocks?: AnswerBlock[];
 }
 
 export interface HistoryEntry {
@@ -25,5 +31,6 @@ export interface HistoryEntry {
   shortAnswer: string;
   spokenAnswer: string;
   confidence: number;
+  blocks?: AnswerBlock[];
   createdAt: string;
 }

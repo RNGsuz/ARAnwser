@@ -15,6 +15,7 @@ export async function saveAnswer(answer: DocumentAnswer): Promise<void> {
     shortAnswer: answer.shortAnswer,
     spokenAnswer: answer.spokenAnswer,
     confidence: answer.confidence,
+    blocks: answer.blocks,
     createdAt: new Date().toISOString(),
   };
   await AsyncStorage.setItem(key, JSON.stringify([entry, ...current].slice(0, 30)));

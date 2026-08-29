@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const answerBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), markdown: z.string().min(1).max(4000) }),
+  z.object({ type: z.literal("code"), language: z.string().max(40), code: z.string().min(1).max(8000) }),
+  z.object({ type: z.literal("math"), latex: z.string().min(1).max(2000), displayMode: z.boolean() }),
+]);
+
 export const answerSchema = z.object({
   shortAnswer: z.string().min(1).max(240),
   spokenAnswer: z.string().min(1).max(1600),
@@ -7,6 +13,7 @@ export const answerSchema = z.object({
   confidence: z.number().min(0).max(1),
   needsRetake: z.boolean(),
   retakeHint: z.string().max(240).nullable(),
+  blocks: z.array(answerBlockSchema).min(1).max(12),
 });
 
 export type Answer = z.infer<typeof answerSchema>;

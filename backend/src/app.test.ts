@@ -22,6 +22,7 @@ const answer = {
   confidence: 0.95,
   needsRetake: false,
   retakeHint: null,
+  blocks: [{ type: "text" as const, markdown: "Die Antwort ist **42**." }],
 };
 
 function multipart(boundary: string, fields: Record<string, string>, image = Buffer.from([0xff, 0xd8, 0xff, 0xdb])): Buffer {

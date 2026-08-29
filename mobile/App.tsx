@@ -13,6 +13,7 @@ import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, tran
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
 import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
+import { AnswerContent } from './src/AnswerContent';
 
 const labels: Record<AssistantState, string> = {
   idle: 'Bereit', capturing: 'Foto wird aufgenommen …', captured: 'Foto bereit', listening: 'Ich höre zu …', reviewing: 'Frage prüfen',
@@ -368,7 +369,7 @@ export default function App() {
               </View>
             ) : (
               <View style={styles.answerPanel}>
-                <Text style={styles.answerText}>{answer.spokenAnswer}</Text>
+                <AnswerContent blocks={answer.blocks} fallback={answer.spokenAnswer} />
                 <Text style={styles.confidence}>Sicherheit: {Math.round(answer.confidence * 100)} %</Text>
                 <View style={styles.followUpRow}>
                   <TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Folgefrage zum selben Bild" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" />
