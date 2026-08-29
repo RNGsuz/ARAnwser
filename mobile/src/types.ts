@@ -1,5 +1,6 @@
 export type AssistantState =
   | 'idle'
+  | 'camera'
   | 'capturing'
   | 'captured'
   | 'listening'
