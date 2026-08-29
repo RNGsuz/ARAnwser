@@ -74,7 +74,8 @@ describe("query API", () => {
   });
 
   it("answers a general question without requiring an image", async () => {
-    const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), transcribe: vi.fn() };
+    const codeAnswer = { ...answer, blocks: [{ type: "code" as const, language: "java", code: "int value = 42;" }] };
+    const vision: VisionService = { answer: vi.fn().mockResolvedValueOnce(codeAnswer).mockResolvedValue(answer), transcribe: vi.fn() };
     const app = await buildApp(config, vision);
     const response = await app.inject({
       method: "POST",
@@ -98,7 +99,10 @@ describe("query API", () => {
       question: "Kannst du es einfacher erklären?",
       locale: "de-DE",
       previousQuestion: "Warum ist der Himmel blau?",
-      previousAnswer: answer.spokenAnswer,
+      previousAnswer: expect.stringContaining(answer.spokenAnswer),
+    }));
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({
+      previousAnswer: expect.stringContaining("int value = 42;"),
     }));
     await app.close();
   });

@@ -30,6 +30,13 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 - Kontrollieren, dass TTS verständlichen Text statt roher LaTeX-Befehle vorliest.
 - Neue strukturierte und alte reine Textantworten aus dem Verlauf öffnen.
 - Kompakte Code- beziehungsweise Formelkarte im simulierten Brillendisplay prüfen.
+- Bei einer längeren Codeantwort kontrollieren: Kurzantwort zuerst, Hinweis
+  „Tippen für Code“, höchstens fünf Codezeilen je Karte und korrekter Fortschritt.
+- Tippen, links/rechts wischen, Navigationstasten und langes Drücken testen.
+- Lange Codezeilen dürfen keinen horizontalen Lauftext erzeugen; Fortsetzungen
+  müssen mit `↳` und stabiler ursprünglicher Zeilennummer erkennbar sein.
+- „Erkläre Zeile 8“ als Folgefrage stellen und den Bezug zum vollständigen Code
+  kontrollieren.
 
 ## Navigation und Layout
 

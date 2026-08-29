@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Speech from 'expo-speech';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable,
   SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
@@ -14,6 +14,7 @@ import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
 import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
 import { AnswerContent } from './src/AnswerContent';
+import { buildGlassesCards, type GlassesCard } from './src/glasses';
 
 const labels: Record<AssistantState, string> = {
   idle: 'Bereit', camera: 'Kamera bereit', capturing: 'Foto wird aufgenommen …', captured: 'Foto bereit', listening: 'Ich höre zu …', reviewing: 'Frage prüfen',
@@ -459,13 +460,56 @@ function SettingRow({ title, description, value, onValueChange, disabled = false
 }
 
 function GlassesDisplay({ state, answer, error }: { state: AssistantState; answer: DocumentAnswer | null; error: string | null }) {
-  const visualBlocks = answer?.blocks?.filter((block) => block.type !== 'text').slice(0, 1);
+  const cards = useMemo(() => answer ? buildGlassesCards(answer) : [], [answer]);
+  const [cardIndex, setCardIndex] = useState(0);
+  const touchStartX = useRef(0);
+  const longPressed = useRef(false);
+
+  useEffect(() => setCardIndex(0), [answer?.queryId]);
+
+  function previousCard() {
+    setCardIndex((current) => Math.max(0, current - 1));
+  }
+
+  function nextCard() {
+    setCardIndex((current) => Math.min(cards.length - 1, current + 1));
+  }
+
+  const card = cards[cardIndex];
   return (
-    <View style={styles.glasses}>
-      <Text style={styles.displayLabel}>SIMULIERTES BRILLENDISPLAY</Text>
-      {error ? <Text style={styles.displayAnswer}>{error}</Text> : answer && state === 'answer' ? (
-        <><Text style={styles.displayAnswer}>{answer.shortAnswer}</Text>{visualBlocks?.length ? <AnswerContent blocks={visualBlocks} fallback="" compact /> : answer.evidence[0] ? <Text style={styles.displayEvidence}>{answer.evidence[0]}</Text> : null}{answer.retakeHint ? <Text style={styles.displayHint}>Hinweis: {answer.retakeHint}</Text> : null}</>
-      ) : <Text style={styles.displayAnswer}>{labels[state]}</Text>}
+    <View style={styles.glassesArea}>
+      <Pressable
+        style={styles.glasses}
+        onTouchStart={(event) => { touchStartX.current = event.nativeEvent.pageX; longPressed.current = false; }}
+        onTouchEnd={(event) => {
+          if (longPressed.current) return;
+          const distance = event.nativeEvent.pageX - touchStartX.current;
+          if (distance > 35) previousCard();
+          else nextCard();
+        }}
+        onLongPress={() => { longPressed.current = true; setCardIndex(0); }}
+        accessibilityLabel="Simuliertes Brillendisplay. Tippen für nächste Karte, nach rechts wischen für zurück."
+      >
+        <View style={styles.displayHeader}><Text style={styles.displayLabel}>BRILLENDISPLAY · {card?.title || 'STATUS'}</Text>{cards.length > 1 ? <Text style={styles.displayProgress}>{cardIndex + 1} / {cards.length}</Text> : null}</View>
+        {error ? <Text style={styles.displayAnswer}>{error}</Text> : answer && state === 'answer' && card ? <GlassesCardContent card={card} /> : <Text style={styles.displayAnswer}>{labels[state]}</Text>}
+      </Pressable>
+      {cards.length > 1 ? <View style={styles.displayNav}><Pressable onPress={previousCard} disabled={cardIndex === 0}><Text style={[styles.displayNavText, cardIndex === 0 && styles.displayNavDisabled]}>‹ Zurück</Text></Pressable><Text style={styles.displayNavHint}>Tippen oder wischen</Text><Pressable onPress={nextCard} disabled={cardIndex === cards.length - 1}><Text style={[styles.displayNavText, cardIndex === cards.length - 1 && styles.displayNavDisabled]}>Weiter ›</Text></Pressable></View> : null}
+    </View>
+  );
+}
+
+function GlassesCardContent({ card }: { card: GlassesCard }) {
+  if (card.type === 'summary') return <View><Text style={styles.displayAnswer}>{card.text}</Text>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
+  if (card.type === 'math') return <AnswerContent blocks={[card.block]} fallback="" compact />;
+  if (card.type === 'note') return <Text style={styles.displayEvidence}>{card.text}</Text>;
+  return (
+    <View style={styles.displayCode}>
+      {card.lines.map((line, index) => (
+        <View style={styles.displayCodeRow} key={`${line.sourceLine}-${index}`}>
+          <Text style={styles.displayLineNumber}>{line.continuation ? '↳' : String(line.sourceLine).padStart(2, '0')}</Text>
+          <Text style={styles.displayCodeText}>{line.text}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -517,9 +561,10 @@ const styles = StyleSheet.create({
   documentGuide: { position: 'absolute', left: 26, right: 26, top: 40, bottom: 28, alignItems: 'center', justifyContent: 'flex-end' }, guideCorner: { position: 'absolute', width: 28, height: 28, borderColor: 'rgba(112,255,155,0.9)' }, guideTopLeft: { left: 0, top: 0, borderLeftWidth: 3, borderTopWidth: 3 }, guideTopRight: { right: 0, top: 0, borderRightWidth: 3, borderTopWidth: 3 }, guideBottomLeft: { left: 0, bottom: 0, borderLeftWidth: 3, borderBottomWidth: 3 }, guideBottomRight: { right: 0, bottom: 0, borderRightWidth: 3, borderBottomWidth: 3 }, guideText: { color: '#effaf2', fontSize: 11, fontWeight: '700', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(4,10,7,0.72)', marginBottom: 8 },
   captureBadge: { position: 'absolute', left: 12, top: 12, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(4,10,7,0.78)', gap: 7 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#68716b' }, dotActive: { backgroundColor: '#ff5d62' }, captureText: { color: '#d9e5dd', fontSize: 10, letterSpacing: 0.7, fontWeight: '700' },
-  glasses: { minHeight: 180, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 21, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
-  displayLabel: { position: 'absolute', top: 12, left: 20, color: '#3e9b5c', fontSize: 9, letterSpacing: 1.4 }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
+  glassesArea: { gap: 9 }, glasses: { minHeight: 220, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 20, gap: 18, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
+  displayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, displayLabel: { color: '#3e9b5c', fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, displayProgress: { color: '#70ff9b', fontSize: 10, fontWeight: '900' }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
+  displayCode: { gap: 4 }, displayCodeRow: { flexDirection: 'row', gap: 9 }, displayLineNumber: { width: 22, color: '#438f5a', fontFamily: 'monospace', fontSize: 12, lineHeight: 18, textAlign: 'right' }, displayCodeText: { flex: 1, color: '#aaffbf', fontFamily: 'monospace', fontSize: 12, lineHeight: 18 }, displayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }, displayNavText: { color: '#70ff9b', fontSize: 12, fontWeight: '800', padding: 7 }, displayNavDisabled: { color: '#35463b' }, displayNavHint: { color: '#5e7065', fontSize: 10 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
   mainActions: { gap: 11 },
   choicePanel: { gap: 11, padding: 14, borderRadius: 20, backgroundColor: '#101c15' }, choiceTitle: { color: '#dce9e0', fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 2 },

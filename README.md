@@ -70,6 +70,13 @@ Fotovorschau, Transkriptprüfung und Antwort sind eigene Ansichten. Gespeicherte
 Antworten können im Tab **Verlauf** vollständig geöffnet werden; ältere
 Textantworten bleiben kompatibel.
 
+Das simulierte Brillendisplay zeigt Antworten als Kartenfolge. Die Kurzantwort
+steht immer zuerst. Tippen beziehungsweise Wischen öffnet anschließend Code,
+Formeln und Begründung; langes Drücken springt zur Übersicht zurück. Code wird auf
+fünf Displayzeilen pro Karte umgebrochen und behält seine ursprünglichen
+Zeilennummern. Dadurch funktionieren Folgefragen wie „Erkläre Zeile 8“ mit dem
+vollständigen flüchtigen Codekontext.
+
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**
 entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.

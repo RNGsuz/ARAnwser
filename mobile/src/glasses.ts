@@ -1,0 +1,78 @@
+import type { AnswerBlock, DocumentAnswer } from './types';
+
+export interface GlassesCodeLine {
+  sourceLine: number;
+  text: string;
+  continuation: boolean;
+}
+
+export type GlassesCard =
+  | { type: 'summary'; title: string; text: string; nextHint: string | null }
+  | { type: 'code'; title: string; lines: GlassesCodeLine[] }
+  | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
+  | { type: 'note'; title: string; text: string };
+
+const maxCodeColumns = 30;
+const codeLinesPerCard = 5;
+
+function splitAtReadableBoundary(value: string, limit: number): [string, string] {
+  if (value.length <= limit) return [value, ''];
+  const candidate = value.slice(0, limit + 1);
+  const preferred = Math.max(
+    candidate.lastIndexOf(' '), candidate.lastIndexOf(','), candidate.lastIndexOf(';'),
+    candidate.lastIndexOf('('), candidate.lastIndexOf(')'),
+  );
+  const splitAt = preferred >= Math.floor(limit * 0.55) ? preferred + 1 : limit;
+  return [value.slice(0, splitAt).trimEnd(), value.slice(splitAt).trimStart()];
+}
+
+export function wrapCode(code: string, columns = maxCodeColumns): GlassesCodeLine[] {
+  const result: GlassesCodeLine[] = [];
+  code.replace(/\t/g, '  ').split('\n').forEach((source, index) => {
+    const sourceLine = index + 1;
+    const indent = source.match(/^\s*/)?.[0] ?? '';
+    let remaining = source;
+    let continuation = false;
+    if (!remaining) {
+      result.push({ sourceLine, text: '', continuation: false });
+      return;
+    }
+    while (remaining.length) {
+      const prefix = continuation ? `${indent}  ` : '';
+      const [visible, rest] = splitAtReadableBoundary(remaining, Math.max(12, columns - prefix.length));
+      result.push({ sourceLine, text: `${prefix}${visible}`, continuation });
+      remaining = rest;
+      continuation = true;
+    }
+  });
+  return result;
+}
+
+function chunks<T>(values: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  return result;
+}
+
+export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
+  const blocks = answer.blocks ?? [];
+  const detailCards: GlassesCard[] = [];
+  for (const block of blocks) {
+    if (block.type === 'code') {
+      for (const page of chunks(wrapCode(block.code), codeLinesPerCard)) {
+        detailCards.push({ type: 'code', title: block.language?.toUpperCase() || 'CODE', lines: page });
+      }
+    }
+    if (block.type === 'math') detailCards.push({ type: 'math', title: 'FORMEL', block });
+  }
+  if (answer.evidence[0]) detailCards.push({ type: 'note', title: 'WARUM?', text: answer.evidence[0] });
+  const firstDetail = detailCards[0];
+  const nextHint = firstDetail?.type === 'code'
+    ? 'Tippen für Code'
+    : firstDetail?.type === 'math'
+      ? 'Tippen für Formel'
+      : firstDetail
+        ? 'Tippen für Details'
+        : null;
+  return [{ type: 'summary', title: 'KURZANTWORT', text: answer.shortAnswer, nextHint }, ...detailCards];
+}

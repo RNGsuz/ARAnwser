@@ -6,7 +6,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Config } from "./config.js";
 import { SessionStore } from "./session-store.js";
-import type { QueryInput, VisionService } from "./types.js";
+import type { Answer, QueryInput, VisionService } from "./types.js";
 
 const followUpSchema = z.object({
   question: z.string().trim().min(1).max(1000),
@@ -30,6 +30,15 @@ function sniffImageMime(data: Buffer, declared: string): string | undefined {
   if (data.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return "image/jpeg";
   if (data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
   return undefined;
+}
+
+function answerContext(answer: Answer): string {
+  const structured = answer.blocks.map((block) => {
+    if (block.type === "code") return `Code (${block.language}):\n${block.code}`;
+    if (block.type === "math") return `Formula (LaTeX): ${block.latex}`;
+    return block.markdown;
+  }).join("\n\n");
+  return `${answer.spokenAnswer}\n\n${structured}`.slice(0, 12_000);
 }
 
 export async function buildApp(config: Config, vision: VisionService): Promise<FastifyInstance> {
@@ -87,7 +96,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       locale: parsed.data.locale,
     };
     const answer = await vision.answer(input);
-    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answer.spokenAnswer });
+    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
     return reply.code(201).send({ queryId: randomUUID(), sessionId, question: input.question, ...answer });
   });
 
@@ -125,7 +134,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       locale: (fields.locale || "de-DE").slice(0, 20),
     };
     const answer = await vision.answer(input);
-    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answer.spokenAnswer });
+    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
     return reply.code(201).send({ queryId: randomUUID(), sessionId, question, ...answer });
   });
 
@@ -152,7 +161,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     if (!previous) return reply.code(404).send({ error: "session_expired" });
     const input = { ...previous, question: parsed.data.question, locale: parsed.data.locale };
     const answer = await vision.answer(input);
-    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answer.spokenAnswer });
+    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
     return { queryId: randomUUID(), sessionId: id, question: input.question, ...answer };
   });
 
