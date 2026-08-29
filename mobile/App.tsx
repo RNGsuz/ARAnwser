@@ -95,14 +95,21 @@ export default function App() {
     }
   }
 
-  async function submitDirectly(imageUri = photoUri, targetSession = currentSession, fromCapture = false) {
+  async function submitDirectly(
+    imageUri = photoUri,
+    targetSession = currentSession,
+    fromCapture = false,
+    mode: 'solve' | 'read' = 'solve',
+  ) {
     if (!imageUri || (!fromCapture && state !== 'captured')) return;
     try {
       setState('processing');
       await acceptAnswer(await createQuery(imageUri, targetSession, {
-        question: settings.explainSteps
-          ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz.'
-          : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild.',
+        question: mode === 'read'
+          ? 'Was steht auf dem Bild? Gib den deutlich lesbaren Hauptinhalt knapp und originalgetreu wieder. Löse oder interpretiere keine Aufgabe, außer es ist zum Verständnis nötig.'
+          : settings.explainSteps
+            ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz.'
+            : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild.',
       }));
     } catch (cause) {
       fail(cause);
@@ -201,6 +208,13 @@ export default function App() {
             <View style={styles.choicePanel}>
               <Text style={styles.choiceTitle}>Was möchtest du tun?</Text>
               <Pressable style={styles.primaryButton} onPress={() => submitDirectly()} onLongPress={cancel}><Text style={styles.primaryButtonText}>Aufgabe direkt beantworten</Text></Pressable>
+              <Pressable style={styles.quickReadButton} onPress={() => submitDirectly(photoUri, currentSession, false, 'read')} onLongPress={cancel}>
+                <Text style={styles.quickReadIcon}>Aa</Text>
+                <View style={styles.quickReadCopy}>
+                  <Text style={styles.quickReadTitle}>Was steht dort?</Text>
+                  <Text style={styles.quickReadDescription}>Sichtbaren Inhalt kurz wiedergeben</Text>
+                </View>
+              </Pressable>
               <Pressable style={styles.secondaryButton} onPress={() => startVoiceQuestion()} onLongPress={cancel}><Text style={styles.secondaryButtonText}>Eigene Frage sprechen</Text></Pressable>
             </View>
           ) : (
@@ -393,6 +407,7 @@ const styles = StyleSheet.create({
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
   choicePanel: { gap: 11, padding: 14, borderRadius: 20, backgroundColor: '#101c15' }, choiceTitle: { color: '#dce9e0', fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
+  quickReadButton: { minHeight: 58, borderRadius: 18, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#1a2a21', borderWidth: 1, borderColor: '#365041' }, quickReadIcon: { color: '#70ff9b', fontSize: 18, fontWeight: '900' }, quickReadCopy: { flex: 1 }, quickReadTitle: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, quickReadDescription: { color: '#8fa097', fontSize: 11, marginTop: 2 },
   secondaryButton: { minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#55ed80' }, secondaryButtonText: { color: '#70ff9b', fontSize: 16, fontWeight: '700' },
   loading: { height: 58, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center' }, muted: { color: '#9aaba0', fontSize: 15 },
   answerPanel: { borderRadius: 20, backgroundColor: '#111d16', padding: 18, gap: 13 }, answerText: { color: '#e8f3eb', fontSize: 17, lineHeight: 25 }, confidence: { color: '#8da096', fontSize: 12 },
