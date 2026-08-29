@@ -58,6 +58,18 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
 Alternativ startet **Frage stellen – ohne Foto** direkt eine allgemeine
 Sprachfrage mit derselben Transkriptvorschau.
 
+Antworten bestehen aus strukturierten Blöcken:
+
+- Text mit Überschriften, Listen, Hervorhebungen und Inline-Code
+- Code mit Sprachlabel, Monospace-Darstellung und horizontalem Scrollen
+- Mathematik aus LaTeX, einschließlich Brüchen, Summen, Integralen, Wurzeln,
+  Hoch-/Tiefstellungen und Matrizen
+
+Der Startbildschirm hält Kamera und allgemeinen Fragemodus getrennt. Kamera,
+Fotovorschau, Transkriptprüfung und Antwort sind eigene Ansichten. Gespeicherte
+Antworten können im Tab **Verlauf** vollständig geöffnet werden; ältere
+Textantworten bleiben kompatibel.
+
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**
 entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.

@@ -20,6 +20,24 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 | Kleine Schrift | Näher herangehen oder einen kleineren Ausschnitt empfehlen |
 | Abgeschnittener Inhalt | Fehlenden Bereich benennen und neue Aufnahme verlangen |
 
+## Antwortdarstellung
+
+- Reine Textantwort mit Überschrift, Liste, Fettschrift und Inline-Code prüfen.
+- Codeantwort in mindestens Python und TypeScript prüfen; lange Zeilen müssen
+  horizontal scrollbar und der Code markierbar sein.
+- Formeln mit `\\frac`, `\\sum`, `\\int`, `\\sqrt`, Hoch-/Tiefstellungen und
+  einer Matrix prüfen.
+- Kontrollieren, dass TTS verständlichen Text statt roher LaTeX-Befehle vorliest.
+- Neue strukturierte und alte reine Textantworten aus dem Verlauf öffnen.
+- Kompakte Code- beziehungsweise Formelkarte im simulierten Brillendisplay prüfen.
+
+## Navigation und Layout
+
+- Startbildschirm darf die Kamera noch nicht anzeigen.
+- Dokumentmodus muss Kamera und anschließend Fotovorschau öffnen.
+- Abbruch aus Kamera, Aufnahme, Transkript und Antwort muss zum Start führen.
+- Zwischen Assistent, Verlauf und Einstellungen wechseln und Zustand prüfen.
+
 ## Sprache und Kontext
 
 - **Frage stellen – ohne Foto** testen und sicherstellen, dass keine
