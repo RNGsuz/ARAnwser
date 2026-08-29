@@ -23,3 +23,8 @@ export async function saveAnswer(answer: DocumentAnswer): Promise<void> {
 export async function clearHistory(): Promise<void> {
   await AsyncStorage.removeItem(key);
 }
+
+export async function deleteHistoryEntry(createdAt: string): Promise<void> {
+  const current = await loadHistory();
+  await AsyncStorage.setItem(key, JSON.stringify(current.filter((entry) => entry.createdAt !== createdAt)));
+}

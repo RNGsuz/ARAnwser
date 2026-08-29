@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { createFollowUp, createQuery, createVoiceFollowUp, deleteSession } from './src/api';
-import { clearHistory, loadHistory, saveAnswer } from './src/history';
+import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
 import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
 
@@ -274,7 +274,7 @@ export default function App() {
               </View>
             )
           ) : null}
-          {state !== 'idle' ? <Pressable onPress={cancel} onLongPress={cancel}><Text style={styles.cancel}>Sitzung verwerfen</Text></Pressable> : null}
+          {state !== 'idle' ? <Pressable onPress={cancel} onLongPress={cancel}><Text style={styles.cancel}>{answer ? 'Bild und Sitzungskontext löschen' : 'Sitzung verwerfen'}</Text></Pressable> : null}
         </ScrollView>
       </KeyboardAvoidingView>
       ) : (
@@ -292,7 +292,9 @@ export default function App() {
         </Pressable>
       </View>
 
-      <HistoryModal visible={historyVisible} entries={history} onClose={() => setHistoryVisible(false)} onClear={async () => {
+      <HistoryModal visible={historyVisible} entries={history} onClose={() => setHistoryVisible(false)} onDelete={async (createdAt) => {
+        await deleteHistoryEntry(createdAt); setHistory(await loadHistory());
+      }} onClear={async () => {
         await clearHistory(); setHistory([]); setHistoryVisible(false);
       }} />
     </SafeAreaView>
@@ -415,14 +417,27 @@ function GlassesDisplay({ state, answer, error }: { state: AssistantState; answe
   );
 }
 
-function HistoryModal({ visible, entries, onClose, onClear }: { visible: boolean; entries: HistoryEntry[]; onClose: () => void; onClear: () => void }) {
+function HistoryModal({ visible, entries, onClose, onDelete, onClear }: {
+  visible: boolean;
+  entries: HistoryEntry[];
+  onClose: () => void;
+  onDelete: (createdAt: string) => void;
+  onClear: () => void;
+}) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.modal}>
         <View style={styles.modalHeader}><Text style={styles.modalTitle}>Verlauf</Text><Pressable onPress={onClose}><Text style={styles.modalAction}>Fertig</Text></Pressable></View>
         <ScrollView contentContainerStyle={styles.historyList}>
+          <View style={styles.historyPrivacy}><Text style={styles.historyPrivacyTitle}>Nur lokal auf diesem Gerät</Text><Text style={styles.historyPrivacyText}>Gespeichert werden Frage und Antwort – niemals das Foto.</Text></View>
           {entries.length === 0 ? <Text style={styles.muted}>Noch keine Antworten gespeichert.</Text> : entries.map((entry, index) => (
-            <View style={styles.historyEntry} key={`${entry.createdAt}-${index}`}><Text style={styles.historyQuestion}>{entry.question}</Text><Text style={styles.historyAnswer}>{entry.shortAnswer}</Text></View>
+            <View style={styles.historyEntry} key={`${entry.createdAt}-${index}`}>
+              <Text style={styles.historyQuestion}>{entry.question}</Text>
+              <Text style={styles.historyAnswer}>{entry.shortAnswer}</Text>
+              <Pressable onPress={() => Alert.alert('Eintrag löschen?', 'Das lässt sich nicht rückgängig machen.', [{ text: 'Abbrechen' }, { text: 'Löschen', style: 'destructive', onPress: () => onDelete(entry.createdAt) }])}>
+                <Text style={styles.deleteEntry}>Eintrag löschen</Text>
+              </Pressable>
+            </View>
           ))}
           {entries.length ? <Pressable onPress={() => Alert.alert('Verlauf löschen?', 'Fotos werden ohnehin nicht gespeichert.', [{ text: 'Abbrechen' }, { text: 'Löschen', style: 'destructive', onPress: onClear }])}><Text style={styles.deleteHistory}>Verlauf löschen</Text></Pressable> : null}
         </ScrollView>
@@ -458,5 +473,5 @@ const styles = StyleSheet.create({
   retakePanel: { borderRadius: 20, backgroundColor: '#271f0d', borderWidth: 1, borderColor: '#8c7029', padding: 18, gap: 10 }, retakeTitle: { color: '#ffda77', fontSize: 17, fontWeight: '800' }, retakePrivacy: { color: '#a69a78', fontSize: 12 },
   followUpRow: { flexDirection: 'row', gap: 9 }, input: { flex: 1, minHeight: 50, borderRadius: 15, paddingHorizontal: 15, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#2d4035' }, voiceFollowUpButton: { width: 50, borderRadius: 15, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, voiceFollowUpText: { color: '#ff686d', fontSize: 17 }, sendButton: { width: 50, borderRadius: 15, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, sendText: { color: '#07100c', fontSize: 24, fontWeight: '800' }, cancel: { color: '#87958c', textAlign: 'center', padding: 10 },
   modal: { flex: 1, backgroundColor: '#08110d' }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#203027' }, modalTitle: { color: '#f3fff7', fontSize: 24, fontWeight: '800' }, modalAction: { color: '#70ff9b', fontSize: 16 },
-  historyList: { padding: 20, gap: 12 }, historyEntry: { backgroundColor: '#121f17', padding: 16, borderRadius: 16, gap: 7 }, historyQuestion: { color: '#93a399', fontSize: 13 }, historyAnswer: { color: '#effaf2', fontSize: 17, fontWeight: '600' }, deleteHistory: { color: '#ff777b', textAlign: 'center', padding: 18 },
+  historyList: { padding: 20, gap: 12 }, historyPrivacy: { backgroundColor: '#102319', borderWidth: 1, borderColor: '#27533a', borderRadius: 16, padding: 14 }, historyPrivacyTitle: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, historyPrivacyText: { color: '#9aaba0', fontSize: 12, lineHeight: 17, marginTop: 3 }, historyEntry: { backgroundColor: '#121f17', padding: 16, borderRadius: 16, gap: 7 }, historyQuestion: { color: '#93a399', fontSize: 13 }, historyAnswer: { color: '#effaf2', fontSize: 17, fontWeight: '600' }, deleteEntry: { color: '#d78b8e', fontSize: 12, fontWeight: '700', paddingTop: 7 }, deleteHistory: { color: '#ff777b', textAlign: 'center', padding: 18 },
 });
