@@ -1,0 +1,68 @@
+import OpenAI, { toFile } from "openai";
+import { answerSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
+import type { Config } from "./config.js";
+
+const outputJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["shortAnswer", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint"],
+  properties: {
+    shortAnswer: { type: "string", maxLength: 240 },
+    spokenAnswer: { type: "string", maxLength: 1600 },
+    evidence: { type: "array", maxItems: 3, items: { type: "string", maxLength: 320 } },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    needsRetake: { type: "boolean" },
+    retakeHint: { type: ["string", "null"], maxLength: 240 },
+  },
+} as const;
+
+export class OpenAIVisionService implements VisionService {
+  private readonly client: OpenAI;
+
+  constructor(private readonly config: Config) {
+    this.client = new OpenAI({ apiKey: config.OPENAI_API_KEY });
+  }
+
+  async transcribe(audio: Buffer, filename: string, mimeType: string): Promise<string> {
+    const result = await this.client.audio.transcriptions.create({
+      file: await toFile(audio, filename, { type: mimeType }),
+      model: this.config.OPENAI_TRANSCRIBE_MODEL,
+      response_format: "text",
+    });
+    return typeof result === "string" ? result.trim() : String(result).trim();
+  }
+
+  async answer(input: QueryInput): Promise<Answer> {
+    const dataUrl = `data:${input.imageMimeType};base64,${input.image.toString("base64")}`;
+    const response = await this.client.responses.create({
+      model: this.config.OPENAI_VISION_MODEL,
+      store: false,
+      reasoning: { effort: "low" },
+      instructions: [
+        "You answer questions only from the photographed document or slide.",
+        "Never invent unreadable or absent content. If the evidence is insufficient, set needsRetake=true and explain how to improve the photo.",
+        "Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief paraphrased visible passages or visual observations.",
+        `Answer in locale ${input.locale}.`,
+      ].join(" "),
+      input: [{
+        role: "user",
+        content: [
+          { type: "input_text", text: `Question: ${input.question}\n\nLocal OCR (may contain errors):\n${input.ocrText || "[no OCR text]"}` },
+          { type: "input_image", image_url: dataUrl, detail: "high" },
+        ],
+      }],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "document_answer",
+          strict: true,
+          schema: outputJsonSchema,
+        },
+      },
+      max_output_tokens: 900,
+    });
+
+    return answerSchema.parse(JSON.parse(response.output_text));
+  }
+}
+

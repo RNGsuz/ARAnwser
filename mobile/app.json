@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "AR Answer",
+    "slug": "ar-answer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "AR Answer fotografiert Dokumente nur nach deiner ausdrücklichen Aktion.",
+        "NSMicrophoneUsageDescription": "AR Answer nimmt deine gesprochene Frage auf."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "AR Answer darf nach deiner Bestätigung Dokumente fotografieren."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "AR Answer darf deine Frage aufnehmen."
+        }
+      ]
+    ]
+  }
+}
