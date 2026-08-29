@@ -10,7 +10,8 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 | --- | --- |
 | Klare gedruckte Seite | Sichtbare Frage korrekt und mit passender Textstelle beantworten |
 | Präsentationsfolie | Überschrift, Kernaussage und Diagrammbezug erfassen |
-| Mehrere Aufgaben | Aufgaben zuerst nummerieren; keine beliebige Aufgabe lösen |
+| Eine Aufgabe mit a), b), c) | Alle zusammenhängenden Unterfragen beantworten |
+| Mehrere unabhängige Aufgaben | Aufgaben zuerst nummerieren; keine beliebige auswählen |
 | Tabelle | Zeilen- und Spaltenbezug in der Antwort nennen |
 | Diagramm | Achsen, Legende und sichtbare Entwicklung berücksichtigen |
 | Handschrift | Nur sicher lesbare Inhalte verwenden, sonst neue Aufnahme verlangen |

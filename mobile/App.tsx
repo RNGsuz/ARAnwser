@@ -111,8 +111,8 @@ export default function App() {
       question: mode === 'read'
         ? 'Was steht auf dem Bild? Gib den deutlich lesbaren Hauptinhalt knapp und originalgetreu wieder. Löse oder interpretiere keine Aufgabe, außer es ist zum Verständnis nötig.'
         : settings.explainSteps
-          ? 'Beantworte oder löse die klar erkennbare Aufgabe auf dem Bild. Erkläre den Lösungsweg kurz. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere und beschreibe sie knapp, damit ich eine auswählen kann.'
-          : 'Gib nur die knappe Antwort auf die klar erkennbare Aufgabe im Bild. Falls mehrere Aufgaben sichtbar sind, löse noch keine: nummeriere sie knapp, damit ich eine auswählen kann.',
+          ? 'Löse die klar erkennbare Aufgabe vollständig und erkläre den Lösungsweg kurz. Zusammengehörige Unterfragen wie a), b), c) sind ein einziges Beispiel und sollen alle beantwortet werden. Frage nur dann nach einer Auswahl, wenn mehrere voneinander unabhängige Aufgaben oder Beispiele auf einer Buch- oder Arbeitsblattseite sichtbar sind; nummeriere diese dann knapp.'
+          : 'Gib die knappen Antworten auf die klar erkennbare Aufgabe. Zusammengehörige Unterfragen wie a), b), c) sind ein einziges Beispiel und sollen alle beantwortet werden. Frage nur dann nach einer Auswahl, wenn mehrere voneinander unabhängige Aufgaben oder Beispiele sichtbar sind; nummeriere diese dann knapp.',
     });
     retryAction.current = () => executeRequest(action);
     await executeRequest(action);

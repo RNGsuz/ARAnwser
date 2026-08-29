@@ -41,6 +41,8 @@ export class OpenAIVisionService implements VisionService {
       instructions: [
         "You answer questions only from the photographed document or slide.",
         "Never invent unreadable or absent content. If the evidence is insufficient, set needsRetake=true and explain how to improve the photo.",
+        "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one.",
+        "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve.",
         "Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief paraphrased visible passages or visual observations.",
         `Answer in locale ${input.locale}.`,
       ].join(" "),
@@ -65,4 +67,3 @@ export class OpenAIVisionService implements VisionService {
     return answerSchema.parse(JSON.parse(response.output_text));
   }
 }
-
