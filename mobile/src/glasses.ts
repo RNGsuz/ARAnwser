@@ -12,7 +12,7 @@ export type GlassesCard =
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
   | { type: 'note'; title: string; text: string };
 
-const maxCodeColumns = 30;
+const maxCodeColumns = 40;
 const codeLinesPerCard = 5;
 
 function splitAtReadableBoundary(value: string, limit: number): [string, string] {
@@ -22,7 +22,7 @@ function splitAtReadableBoundary(value: string, limit: number): [string, string]
     candidate.lastIndexOf(' '), candidate.lastIndexOf(','), candidate.lastIndexOf(';'),
     candidate.lastIndexOf('('), candidate.lastIndexOf(')'),
   );
-  const splitAt = preferred >= Math.floor(limit * 0.55) ? preferred + 1 : limit;
+  const splitAt = preferred >= Math.floor(limit * 0.7) ? preferred + 1 : limit;
   return [value.slice(0, splitAt).trimEnd(), value.slice(splitAt).trimStart()];
 }
 
