@@ -41,6 +41,9 @@ Dokumente für Testaufnahmen verwenden.
   mit balancierten Klammern muss zurückkommen.
 - Fehlende angeforderte Methoden oder abgeschnittene Bodies müssen als ungültiges
   Antwortformat behandelt werden.
+- Eine zeitstabile Wissensfrage stellen und prüfen, dass kein Webwerkzeug angeboten
+  wird. Anschließend dieselbe Frage mit „aktuell“ oder „heute“ stellen; die Antwort
+  muss eine knappe Quelle nennen und darf höchstens zwei Webaufrufe verwenden.
 
 ## Dokumente und Aufnahmebedingungen
 

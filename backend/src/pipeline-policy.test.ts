@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectPipelinePolicy } from "./pipeline-policy.js";
+import { needsCurrentInformation, selectPipelinePolicy } from "./pipeline-policy.js";
 
 const models = { defaultModel: "default", fastModel: "fast", reasoningModel: "reasoning" };
 
@@ -32,5 +32,12 @@ describe("pipeline policy", () => {
     const policy = selectPipelinePolicy({ intent: "question", question: "Implementiere Bubble Sort in Java", locale: "de-DE" }, models);
     expect(policy).toMatchObject({ intent: "question", taskKind: "code", model: "reasoning", maxOutputTokens: 5000 });
     expect(policy.allowedTools).toEqual(["code_verifier"]);
+  });
+
+  it("offers web search only for explicit current-information needs", () => {
+    expect(needsCurrentInformation("Was kostet dieses Produkt aktuell?")).toBe(true);
+    expect(needsCurrentInformation("Was ist Photosynthese?")).toBe(false);
+    expect(selectPipelinePolicy({ intent: "question", question: "Ist das heute verfügbar?", locale: "de-DE" }, models).allowedTools).toContain("web_search");
+    expect(selectPipelinePolicy({ intent: "discover", question: "Was ist eine Walnuss?", locale: "de-DE" }, models).allowedTools).not.toContain("web_search");
   });
 });

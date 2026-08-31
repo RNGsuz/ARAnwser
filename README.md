@@ -53,6 +53,12 @@ Beschriftungen oder sichtbarem Hintergrund. Ein Update der Sitzung kopiert den
 Bildpuffer vor dem sicheren Löschen des alten Puffers, damit spätere berechtigte
 Detailfragen weiterhin das unveränderte Foto erhalten.
 
+Die eingebaute Websuche wird nur angeboten, wenn die Frage ausdrücklich aktuelle
+Informationen verlangt, beispielsweise mit „heute“, „aktuell“, „Preis“,
+„Öffnungszeiten“ oder „Verfügbarkeit“. Ohne ein solches Signal enthält die
+Responses-Anfrage kein Webwerkzeug. Aktuelle Antworten sollen ihre knappen
+Quellen in `evidence` angeben; maximal zwei Webaufrufe sind pro Antwort erlaubt.
+
 ## Expo-Prototyp starten
 
 Handy und Entwicklungsrechner müssen im selben Netzwerk sein. Zuerst die

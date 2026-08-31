@@ -255,13 +255,14 @@ export function parseAnswerPayload(payload: unknown, intent: AnswerIntent = "sol
   throw parsed.error;
 }
 
-function instructionsForInput(input: QueryInput, intent: AnswerIntent, taskKind: "direct" | "math" | "code"): string {
+function instructionsForInput(input: QueryInput, intent: AnswerIntent, taskKind: "direct" | "math" | "code", webSearchAllowed: boolean): string {
   const answerKind = intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general";
   const common = [
     `Set answerKind exactly to ${answerKind}. Answer in locale ${input.locale}.`,
     "Use previous context only for contextual follow-ups. Keep shortAnswer glanceable and spokenAnswer natural. Evidence has at most three brief supporting points.",
     "glassesSummary is the primary small-display result. Use complete short lines, readable Unicode, and no raw LaTeX commands, dollar delimiters, or begin/end environments.",
     "Build blocks in reading order: text for prose, code for source code, and math for LaTeX. Do not duplicate primary display content in blocks.",
+    webSearchAllowed ? "Web search is available because the question explicitly needs current information. Use it only for that current fact and include concise source names or URLs in evidence." : "Do not claim to have checked current web information.",
   ];
   if (intent === "discover") return [...common,
     "The user selected object discovery. Identify and explain the main physical object, animal, plant, artwork, food, or scene. Do not treat writing as a worksheet or solve tasks unless explicitly asked. Be honest about ambiguity and request a better photo when responsible identification is impossible.",
@@ -336,11 +337,12 @@ export class OpenAIVisionService implements VisionService {
       model: policy.model,
       store: false,
       reasoning: { effort: policy.reasoningEffort },
-      instructions: instructionsForInput(input, intent, policy.taskKind),
+      instructions: instructionsForInput(input, intent, policy.taskKind, policy.allowedTools.includes("web_search")),
       input: [{
         role: "user",
         content: content as never,
       }],
+      ...(policy.allowedTools.includes("web_search") ? { tools: [{ type: "web_search" as const }], tool_choice: "auto" as const, max_tool_calls: 2 } : {}),
       text: {
         format: {
           type: "json_schema",
