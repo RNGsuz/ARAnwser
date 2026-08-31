@@ -58,7 +58,15 @@ export interface DiscoveryInfo {
   safetyNote: string | null;
 }
 
-export type AssistantMode = 'discover' | 'solve' | 'question';
+export interface ReadingInfo {
+  title: string | null;
+  summary: string[];
+  recognizedText: string | null;
+  keyPoints: string[];
+  visualFindings: string[];
+}
+
+export type AssistantMode = 'discover' | 'read' | 'solve' | 'question';
 
 export interface DocumentAnswer {
   queryId: string;
@@ -70,6 +78,7 @@ export interface DocumentAnswer {
   recognizedItems?: RecognizedItem[];
   glassesCodeUnits?: GlassesCodeUnit[];
   discoveryInfo?: DiscoveryInfo | null;
+  readingInfo?: ReadingInfo | null;
   solution?: GuidedSolution;
   spokenAnswer: string;
   evidence: string[];
@@ -87,6 +96,7 @@ export interface HistoryEntry {
   recognizedItems?: RecognizedItem[];
   glassesCodeUnits?: GlassesCodeUnit[];
   discoveryInfo?: DiscoveryInfo | null;
+  readingInfo?: ReadingInfo | null;
   solution?: GuidedSolution;
   spokenAnswer: string;
   confidence: number;

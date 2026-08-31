@@ -5,8 +5,8 @@ Dokumente für Testaufnahmen verwenden.
 
 ## Eingabemodi
 
-- Auf dem Startbildschirm müssen **Entdecken**, **Aufgabe lösen** und **Frage
-  stellen** als drei eigenständige Aktionen sichtbar sein.
+- Auf dem Startbildschirm müssen **Entdecken**, **Aufgabe lösen**, **Lesen &
+  Verstehen** und **Frage stellen** als vier eigenständige Aktionen sichtbar sein.
 - Im Modus **Entdecken** eine Pflanze, Schale Nüsse oder Statue fotografieren.
   Nach dem Foto dürfen nur **Informationen anzeigen**, **Eigene Frage zum Foto**
   und **Foto erneut aufnehmen** angeboten werden.
@@ -17,6 +17,11 @@ Dokumente für Testaufnahmen verwenden.
 - Im Modus **Aufgabe lösen** müssen **Alle sichtbaren Aufgaben lösen** und die
   gezielte Frage zum Foto erscheinen. Eine Objekt-Infobox darf hier nicht den
   Aufgabenvertrag ersetzen.
+- Im Modus **Lesen & Verstehen** eine Slide und ein Dokument testen. Nach dem Foto
+  müssen **Kurz zusammenfassen**, **Text wiedergeben** und **Eigene Frage zum
+  Inhalt** erscheinen. Eine sichtbare Übungsfrage darf nicht ungefragt gelöst
+  werden. Titel, Kernaussagen und relevante Diagramm- oder Tabelleninformationen
+  müssen getrennt erhalten bleiben.
 - **Frage stellen** darf weder Kamera noch Fotoaktionen öffnen. Aufnahme,
   Transkriptprüfung und Korrektur müssen weiterhin funktionieren.
 - Foto wiederholen und Folgefrage senden; der ursprünglich gewählte Modus muss

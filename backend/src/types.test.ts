@@ -11,6 +11,7 @@ describe("structured answer schema", () => {
       recognizedItems: [{ label: "Frage 150)", labelSource: "document", sourceLatex: "1+2" }],
       glassesCodeUnits: [],
       discoveryInfo: null,
+      readingInfo: null,
       solution: { kind: "math", title: "Lösungsweg", steps: [{ title: "Summieren", explanation: "Die Terme werden addiert.", contentType: "math", content: "1 + 2 = 3", language: null }] },
       spokenAnswer: "Die Antwort enthält erklärenden Text, Programmcode und eine mathematische Formel.",
       evidence: [],
@@ -36,6 +37,7 @@ describe("structured answer schema", () => {
       recognizedItems: [],
       glassesCodeUnits: [],
       discoveryInfo: null,
+      readingInfo: null,
       solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
@@ -54,6 +56,7 @@ describe("structured answer schema", () => {
       recognizedItems: [],
       glassesCodeUnits: [],
       discoveryInfo: null,
+      readingInfo: null,
       solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
@@ -78,6 +81,7 @@ describe("structured answer schema", () => {
       recognizedItems: [{ label: "a)", labelSource: "document", sourceLatex: "3(x-1)+2=2x" }],
       glassesCodeUnits: [],
       discoveryInfo: null,
+      readingInfo: null,
       solution: { kind: "direct", title: "Diagnose", steps: [] },
       spokenAnswer: "x ist eins.", evidence: [], confidence: 1, needsRetake: false, retakeHint: null,
       blocks: [{ type: "text", markdown: "x = 1" }],
@@ -96,6 +100,7 @@ describe("structured answer schema", () => {
       recognizedItems: [],
       glassesCodeUnits: [{ label: "static int sum(int[] values)", language: "java", code: method, explanation: "Summiert die Werte." }],
       discoveryInfo: null,
+      readingInfo: null,
       solution: { kind: "code", title: "Implementierung", steps: [] },
       spokenAnswer: "Die Methode summiert alle Werte.", evidence: [], confidence: 1,
       needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Die Laufzeit ist linear." }],
@@ -111,6 +116,7 @@ describe("structured answer schema", () => {
       shortAnswer: "Drei Methoden implementiert", glassesSummary: { format: "text", lines: ["3 Methoden vollständig"] },
       glassesExercises: [], recognizedItems: [], glassesCodeUnits: methods,
       discoveryInfo: null,
+      readingInfo: null,
       solution: { kind: "code", title: "Implementierung", steps: [] }, spokenAnswer: "Drei Methoden wurden implementiert.",
       evidence: [], confidence: 1, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Laufzeit konstant." }],
     });
@@ -123,9 +129,21 @@ describe("structured answer schema", () => {
       shortAnswer: "Eine Walnuss", glassesSummary: { format: "text", lines: ["Walnuss", "Botanisch eine Steinfrucht"] },
       glassesExercises: [], recognizedItems: [], glassesCodeUnits: [],
       discoveryInfo: { name: "Walnuss", category: "Lebensmittel", description: "Der essbare Samen des Walnussbaums.", facts: ["Reich an ungesättigten Fettsäuren.", "Botanisch keine echte Nuss."], alternatives: [], safetyNote: "Bei Nussallergie nicht verzehren." },
+      readingInfo: null,
       solution: { kind: "direct", title: "Entdeckt", steps: [] }, spokenAnswer: "Das ist wahrscheinlich eine Walnuss.",
       evidence: [], confidence: 0.95, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Walnuss" }],
     });
     expect(result.discoveryInfo?.facts).toHaveLength(2);
+  });
+
+  it("accepts a structured reading response", () => {
+    const result = answerSchema.parse({
+      shortAnswer: "Die Folie erklärt Photosynthese.", glassesSummary: { format: "text", lines: ["Photosynthese", "Licht wird in chemische Energie umgewandelt."] },
+      glassesExercises: [], recognizedItems: [], glassesCodeUnits: [], discoveryInfo: null,
+      readingInfo: { title: "Photosynthese", summary: ["Pflanzen wandeln Lichtenergie um."], recognizedText: null, keyPoints: ["Chlorophyll absorbiert Licht."], visualFindings: ["Ein Pfeildiagramm zeigt den Stofffluss."] },
+      solution: { kind: "document", title: "Zusammenfassung", steps: [] }, spokenAnswer: "Die Folie erklärt Photosynthese.",
+      evidence: [], confidence: 0.96, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Photosynthese" }],
+    });
+    expect(result.readingInfo?.title).toBe("Photosynthese");
   });
 });

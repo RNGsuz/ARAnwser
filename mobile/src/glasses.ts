@@ -1,4 +1,4 @@
-import type { AnswerBlock, DiscoveryInfo, DocumentAnswer, GlassesCodeUnit, GlassesExercise, RecognizedItem, SolutionStep } from './types';
+import type { AnswerBlock, DiscoveryInfo, DocumentAnswer, GlassesCodeUnit, GlassesExercise, ReadingInfo, RecognizedItem, SolutionStep } from './types';
 
 export interface GlassesCodeLine {
   sourceLine: number;
@@ -12,6 +12,7 @@ export type GlassesCard =
   | { type: 'recognized'; title: string; items: RecognizedItem[]; page: number; pages: number }
   | { type: 'codeUnit'; title: string; unit: GlassesCodeUnit }
   | { type: 'discovery'; title: string; info: DiscoveryInfo; facts: string[]; page: number; pages: number }
+  | { type: 'reading'; title: string; info: ReadingInfo; lines: string[] }
   | { type: 'step'; title: string; number: number; total: number; step: SolutionStep }
   | { type: 'code'; title: string; lines: GlassesCodeLine[] }
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
@@ -71,6 +72,7 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const recognizedItems = answer.recognizedItems ?? [];
   const codeUnits = answer.glassesCodeUnits ?? [];
   const discovery = answer.discoveryInfo;
+  const reading = answer.readingInfo;
   const hasPrimaryMathDisplay = exercises.length > 0 || recognizedItems.length > 0;
   const codeLivesInSolution = solutionSteps.some((step) => step.contentType === 'code');
   if (discovery) {
@@ -79,6 +81,9 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
       type: 'discovery', title: factPages.length > 1 ? `NICE TO KNOW ${index + 1}/${factPages.length}` : 'NICE TO KNOW', info: discovery, facts, page: index + 1, pages: factPages.length,
     }));
     if (discovery.safetyNote) detailCards.push({ type: 'note', title: 'HINWEIS', text: discovery.safetyNote });
+  } else if (reading) {
+    if (reading.keyPoints.length) detailCards.push({ type: 'reading', title: 'KERNAUSSAGEN', info: reading, lines: reading.keyPoints });
+    if (reading.visualFindings.length) detailCards.push({ type: 'reading', title: 'VISUELL ERKANNT', info: reading, lines: reading.visualFindings });
   } else if (hasPrimaryMathDisplay) {
     for (const exercise of exercises) {
       if (!exercise.transformations.length) continue;
@@ -127,6 +132,8 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
         ? 'Nach links für erkannten Inhalt'
       : firstDetail?.type === 'discovery'
         ? 'Nach links für Fakten'
+      : firstDetail?.type === 'reading'
+        ? 'Nach links für Kernaussagen'
       : firstDetail
         ? 'Nach links für Details'
         : null;

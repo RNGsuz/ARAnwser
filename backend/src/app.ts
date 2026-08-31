@@ -14,7 +14,7 @@ const followUpSchema = z.object({
   includeSteps: z.boolean().default(true),
 });
 
-const intentSchema = z.enum(["solve", "discover", "question"]);
+const intentSchema = z.enum(["solve", "discover", "read", "question"]);
 
 const questionSchema = followUpSchema.extend({
   sessionId: z.string().trim().min(1).max(200).optional(),
@@ -44,6 +44,9 @@ function answerContext(answer: Answer): string {
   const discovery = answer.discoveryInfo
     ? `${answer.discoveryInfo.name} (${answer.discoveryInfo.category}): ${answer.discoveryInfo.description}\n${answer.discoveryInfo.facts.join("\n")}`
     : "";
+  const reading = answer.readingInfo
+    ? `${answer.readingInfo.title || "Document"}\n${answer.readingInfo.summary.join("\n")}\n${answer.readingInfo.recognizedText || ""}\n${answer.readingInfo.keyPoints.join("\n")}\n${answer.readingInfo.visualFindings.join("\n")}`
+    : "";
   const glassesMath = answer.glassesExercises.map((exercise) =>
     `${exercise.label} ${exercise.sourceLatex} => ${exercise.resultLatex}\n${exercise.transformations.map((step) => `${step.latex}${step.operation ? ` [${step.operation}]` : ""}`).join("\n")}`,
   ).join("\n\n");
@@ -58,7 +61,7 @@ function answerContext(answer: Answer): string {
     if (block.type === "math") return `Formula (LaTeX): ${block.latex}`;
     return block.markdown;
   }).join("\n\n");
-  return `${answer.spokenAnswer}\n\n${discovery}\n\n${glassesMath}\n\n${glassesCode}\n\n${steps}\n\n${structured}`.slice(0, 16_000);
+  return `${answer.spokenAnswer}\n\n${discovery}\n\n${reading}\n\n${glassesMath}\n\n${glassesCode}\n\n${steps}\n\n${structured}`.slice(0, 16_000);
 }
 
 export async function buildApp(config: Config, vision: VisionService): Promise<FastifyInstance> {

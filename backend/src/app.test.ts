@@ -22,6 +22,7 @@ const answer = {
   recognizedItems: [],
   glassesCodeUnits: [],
   discoveryInfo: null,
+  readingInfo: null,
   solution: {
     kind: "math" as const,
     title: "Lösungsweg",

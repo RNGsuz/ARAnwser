@@ -18,6 +18,7 @@ export async function saveAnswer(answer: DocumentAnswer): Promise<void> {
     recognizedItems: answer.recognizedItems,
     glassesCodeUnits: answer.glassesCodeUnits,
     discoveryInfo: answer.discoveryInfo,
+    readingInfo: answer.readingInfo,
     solution: answer.solution,
     spokenAnswer: answer.spokenAnswer,
     confidence: answer.confidence,

@@ -49,6 +49,14 @@ export const discoveryInfoSchema = z.object({
   safetyNote: z.string().min(1).max(240).nullable(),
 });
 
+export const readingInfoSchema = z.object({
+  title: z.string().min(1).max(140).nullable(),
+  summary: z.array(z.string().min(1).max(240)).min(1).max(5),
+  recognizedText: z.string().min(1).max(6000).nullable(),
+  keyPoints: z.array(z.string().min(1).max(200)).max(6),
+  visualFindings: z.array(z.string().min(1).max(200)).max(4),
+});
+
 export const answerSchema = z.object({
   shortAnswer: z.string().min(1).max(240),
   glassesSummary: z.object({
@@ -59,6 +67,7 @@ export const answerSchema = z.object({
   recognizedItems: z.array(recognizedItemSchema).max(12),
   glassesCodeUnits: z.array(glassesCodeUnitSchema).max(12),
   discoveryInfo: discoveryInfoSchema.nullable(),
+  readingInfo: readingInfoSchema.nullable(),
   solution: z.object({
     kind: z.enum(["math", "code", "document", "concept", "direct", "selection"]),
     title: z.string().min(1).max(80),
@@ -83,7 +92,7 @@ export interface QueryInput {
   previousQuestion?: string;
   previousAnswer?: string;
   includeSteps?: boolean;
-  intent?: "solve" | "discover" | "question";
+  intent?: "solve" | "discover" | "read" | "question";
 }
 
 export interface VisionService {

@@ -44,7 +44,7 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
 
 ## Bedienung
 
-Der Assistent beginnt mit drei klar getrennten Modi:
+Der Assistent beginnt mit vier klar getrennten Modi:
 
 - **Entdecken** fotografiert ein Objekt, Tier, eine Pflanze, ein Kunstwerk,
   Lebensmittel oder eine Szene und erzeugt eine kompakte Infobox mit
@@ -53,6 +53,9 @@ Der Assistent beginnt mit drei klar getrennten Modi:
 - **Aufgabe lösen** verwendet den bestehenden Dokument-, Mathematik- und
   Codeablauf. Nach dem Foto können alle zusammengehörigen sichtbaren Aufgaben
   gelöst oder eine gezielte Sprachfrage zum Bild gestellt werden.
+- **Lesen & Verstehen** fasst Slides, Dokumente, Tabellen und Diagramme zusammen,
+  gibt sichtbaren Text originalgetreu wieder oder beantwortet eine gezielte Frage
+  zum Inhalt, ohne Aufgaben ungefragt zu lösen.
 - **Frage stellen** nimmt eine allgemeine Sprachfrage ohne Foto auf und zeigt vor
   dem Absenden das bearbeitbare Transkript.
 
