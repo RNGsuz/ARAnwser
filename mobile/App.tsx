@@ -12,7 +12,7 @@ import {
 import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, transcribeAudio } from './src/api';
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
-import type { AssistantState, DocumentAnswer, HistoryEntry } from './src/types';
+import type { AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep } from './src/types';
 import { AnswerContent } from './src/AnswerContent';
 import { buildGlassesCards, type GlassesCard } from './src/glasses';
 
@@ -368,7 +368,8 @@ export default function App() {
               answer.needsRetake ? <View style={styles.retakePanel}><Text style={styles.retakeTitle}>Aufnahme nicht sicher lesbar</Text><Text style={styles.answerText}>{answer.retakeHint || answer.spokenAnswer}</Text><Text style={styles.retakePrivacy}>Dieses Foto wird nicht im Verlauf gespeichert.</Text><Pressable style={[styles.primaryButton, styles.retakeButton]} onPress={openCamera}><Text style={styles.primaryButtonText}>Foto erneut aufnehmen</Text></Pressable></View> : (
                 <View style={styles.answerWorkspace}>
                   <GlassesDisplay state={state} answer={answer} error={null} />
-                  <View style={styles.answerPanel}><Text style={styles.sectionLabel}>AUSFÜHRLICHE ANTWORT</Text><AnswerContent blocks={answer.blocks} fallback={answer.spokenAnswer} /><View style={styles.answerMeta}><Text style={styles.confidence}>Sicherheit {Math.round(answer.confidence * 100)} %</Text><Pressable onPress={() => speakThroughMediaOutput(answer.spokenAnswer)}><Text style={styles.speakAction}>▶ Vorlesen</Text></Pressable></View></View>
+                  <GuidedSolutionView solution={answer.solution} />
+                  <View style={styles.answerPanel}><Text style={styles.sectionLabel}>{answer.solution?.steps.length ? 'VERTIEFUNG' : 'AUSFÜHRLICHE ANTWORT'}</Text><AnswerContent blocks={answer.blocks} fallback={answer.spokenAnswer} /><View style={styles.answerMeta}><Text style={styles.confidence}>Sicherheit {Math.round(answer.confidence * 100)} %</Text><Pressable onPress={() => speakThroughMediaOutput(answer.spokenAnswer)}><Text style={styles.speakAction}>▶ Vorlesen</Text></Pressable></View></View>
                   <View style={styles.followUpCard}><Text style={styles.sectionLabel}>FOLGEFRAGE</Text><View style={styles.followUpRow}><TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Was möchtest du noch wissen?" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" /><Pressable style={styles.voiceFollowUpButton} onPress={() => startVoiceFollowUp()} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable><Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable></View></View>
                   <View style={styles.answerActions}><Pressable style={styles.secondaryButton} onPress={openCamera}><Text style={styles.secondaryButtonText}>Neues Dokument</Text></Pressable><Pressable style={styles.secondaryButton} onPress={() => startGeneralQuestion()}><Text style={styles.secondaryButtonText}>Neue Frage</Text></Pressable></View>
                   <Pressable onPress={cancel}><Text style={styles.destructiveAction}>{photoUri ? 'Bild und Kontext löschen' : 'Sitzungskontext löschen'}</Text></Pressable>
@@ -459,6 +460,28 @@ function SettingRow({ title, description, value, onValueChange, disabled = false
   );
 }
 
+function solutionStepBlocks(step: SolutionStep) {
+  if (step.contentType === 'math') return [{ type: 'math' as const, latex: step.content, displayMode: true }];
+  if (step.contentType === 'code') return [{ type: 'code' as const, language: step.language || '', code: step.content }];
+  return [{ type: 'text' as const, markdown: step.content }];
+}
+
+function GuidedSolutionView({ solution }: { solution?: GuidedSolution }) {
+  if (!solution?.steps.length) return null;
+  return (
+    <View style={styles.solutionPanel}>
+      <Text style={styles.sectionLabel}>{solution.title.toUpperCase()}</Text>
+      {solution.steps.map((step, index) => (
+        <View style={styles.solutionStep} key={`${index}-${step.title}`}>
+          <View style={styles.solutionStepHeader}><View style={styles.solutionNumber}><Text style={styles.solutionNumberText}>{index + 1}</Text></View><Text style={styles.solutionTitle}>{step.title}</Text></View>
+          <AnswerContent blocks={solutionStepBlocks(step)} fallback={step.content} />
+          <Text style={styles.solutionExplanation}>{step.explanation}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function GlassesDisplay({ state, answer, error }: { state: AssistantState; answer: DocumentAnswer | null; error: string | null }) {
   const cards = useMemo(() => answer ? buildGlassesCards(answer) : [], [answer]);
   const [cardIndex, setCardIndex] = useState(0);
@@ -500,6 +523,7 @@ function GlassesDisplay({ state, answer, error }: { state: AssistantState; answe
 
 function GlassesCardContent({ card }: { card: GlassesCard }) {
   if (card.type === 'summary') return <View><View style={styles.displaySummaryLines}>{card.lines.map((line, index) => <Text key={`${index}-${line}`} style={card.format === 'output' ? styles.displayOutputLine : styles.displayAnswer}>{line}</Text>)}</View>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
+  if (card.type === 'step') return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><AnswerContent blocks={solutionStepBlocks(card.step)} fallback={card.step.content} compact /><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
   if (card.type === 'math') return <AnswerContent blocks={[card.block]} fallback="" compact />;
   if (card.type === 'note') return <Text style={styles.displayEvidence}>{card.text}</Text>;
   return (
@@ -527,7 +551,8 @@ function HistoryScreen({ entries, selected, onSelect, onDelete, onClear }: {
         <Pressable onPress={() => onSelect(null)}><Text style={styles.backAction}>‹ Verlauf</Text></Pressable>
         <Text style={styles.eyebrow}>GESPEICHERTE ANTWORT</Text>
         <Text style={styles.historyDetailQuestion}>{selected.question}</Text>
-        <View style={styles.answerPanel}><AnswerContent blocks={selected.blocks} fallback={selected.spokenAnswer} /></View>
+        <GuidedSolutionView solution={selected.solution} />
+        <View style={styles.answerPanel}><Text style={styles.sectionLabel}>{selected.solution?.steps.length ? 'VERTIEFUNG' : 'ANTWORT'}</Text><AnswerContent blocks={selected.blocks} fallback={selected.spokenAnswer} /></View>
         <Pressable onPress={() => speakThroughMediaOutput(selected.spokenAnswer)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Antwort vorlesen</Text></Pressable>
         <Pressable onPress={() => Alert.alert('Eintrag löschen?', 'Das lässt sich nicht rückgängig machen.', [{ text: 'Abbrechen' }, { text: 'Löschen', style: 'destructive', onPress: () => onDelete(selected.createdAt) }])}><Text style={styles.destructiveAction}>Eintrag löschen</Text></Pressable>
       </ScrollView>
@@ -564,6 +589,7 @@ const styles = StyleSheet.create({
   glassesArea: { gap: 9 }, glasses: { minHeight: 220, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 20, gap: 18, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
   displayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, displayLabel: { color: '#3e9b5c', fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, displayProgress: { color: '#70ff9b', fontSize: 10, fontWeight: '900' }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displaySummaryLines: { gap: 4 }, displayOutputLine: { color: '#70ff9b', fontFamily: 'monospace', fontSize: 19, lineHeight: 24, fontWeight: '700' },
+  displayStep: { gap: 7 }, displayStepTitle: { color: '#ffda77', fontSize: 15, lineHeight: 19, fontWeight: '900' }, displayStepExplanation: { color: '#9fc9aa', fontSize: 12, lineHeight: 16 },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   displayCode: { gap: 3 }, displayCodeRow: { flexDirection: 'row', gap: 7 }, displayLineNumber: { width: 20, color: '#438f5a', fontFamily: 'monospace', fontSize: 11, lineHeight: 17, textAlign: 'right' }, displayCodeText: { flex: 1, color: '#aaffbf', fontFamily: 'monospace', fontSize: 11, lineHeight: 17 }, displayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }, displayNavText: { color: '#70ff9b', fontSize: 12, fontWeight: '800', padding: 7 }, displayNavDisabled: { color: '#35463b' }, displayNavHint: { color: '#5e7065', fontSize: 10 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
@@ -574,6 +600,7 @@ const styles = StyleSheet.create({
   secondaryButton: { minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#55ed80' }, secondaryButtonText: { color: '#70ff9b', fontSize: 16, fontWeight: '700' },
   loading: { height: 58, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center' }, muted: { color: '#9aaba0', fontSize: 15 },
   answerPanel: { borderRadius: 20, backgroundColor: '#111d16', padding: 18, gap: 13 }, answerText: { color: '#e8f3eb', fontSize: 17, lineHeight: 25 }, confidence: { color: '#8da096', fontSize: 12 },
+  solutionPanel: { borderRadius: 20, backgroundColor: '#0d1b12', borderWidth: 1, borderColor: '#2a4a35', padding: 18, gap: 12 }, solutionStep: { borderTopWidth: 1, borderTopColor: '#294033', paddingTop: 14, gap: 9 }, solutionStepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 }, solutionNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, solutionNumberText: { color: '#07100c', fontSize: 13, fontWeight: '900' }, solutionTitle: { flex: 1, color: '#f1fbf4', fontSize: 16, fontWeight: '800' }, solutionExplanation: { color: '#a6b6ac', fontSize: 14, lineHeight: 20 },
   retakePanel: { borderRadius: 20, backgroundColor: '#271f0d', borderWidth: 1, borderColor: '#8c7029', padding: 18, gap: 10 }, retakeTitle: { color: '#ffda77', fontSize: 17, fontWeight: '800' }, retakePrivacy: { color: '#a69a78', fontSize: 12 },
   followUpRow: { flexDirection: 'row', gap: 9 }, input: { flex: 1, minHeight: 50, borderRadius: 15, paddingHorizontal: 15, color: '#f3fff7', backgroundColor: '#07100c', borderWidth: 1, borderColor: '#2d4035' }, voiceFollowUpButton: { width: 50, borderRadius: 15, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, voiceFollowUpText: { color: '#ff686d', fontSize: 17 }, sendButton: { width: 50, borderRadius: 15, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, sendText: { color: '#07100c', fontSize: 24, fontWeight: '800' }, cancel: { color: '#87958c', textAlign: 'center', padding: 10 },
   modal: { flex: 1, backgroundColor: '#08110d' }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#203027' }, modalTitle: { color: '#f3fff7', fontSize: 24, fontWeight: '800' }, modalAction: { color: '#70ff9b', fontSize: 16 },

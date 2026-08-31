@@ -33,12 +33,15 @@ function sniffImageMime(data: Buffer, declared: string): string | undefined {
 }
 
 function answerContext(answer: Answer): string {
+  const steps = answer.solution.steps.map((step, index) =>
+    `Step ${index + 1} – ${step.title}: ${step.content}\n${step.explanation}`,
+  ).join("\n\n");
   const structured = answer.blocks.map((block) => {
     if (block.type === "code") return `Code (${block.language}):\n${block.code}`;
     if (block.type === "math") return `Formula (LaTeX): ${block.latex}`;
     return block.markdown;
   }).join("\n\n");
-  return `${answer.spokenAnswer}\n\n${structured}`.slice(0, 12_000);
+  return `${answer.spokenAnswer}\n\n${steps}\n\n${structured}`.slice(0, 12_000);
 }
 
 export async function buildApp(config: Config, vision: VisionService): Promise<FastifyInstance> {

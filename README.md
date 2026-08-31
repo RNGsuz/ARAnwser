@@ -77,6 +77,14 @@ fünf Displayzeilen pro Karte umgebrochen und behält seine ursprünglichen
 Zeilennummern. Dadurch funktionieren Folgefragen wie „Erkläre Zeile 8“ mit dem
 vollständigen flüchtigen Codekontext.
 
+Antworten folgen einer progressiven Lernstruktur: zuerst das eindeutige Ergebnis,
+danach höchstens acht nachvollziehbare Einzelschritte und zuletzt Vertiefung und
+Belege. Bei Mathematik ist ein Schritt eine Umformung, bei Code eine relevante
+Ablauf- oder Denkstufe, bei Dokumenten der Weg von der Fundstelle zur
+Interpretation und bei Theorie von der Kernaussage zur Begründung. Auf der Brille
+belegt jeder Lernschritt eine eigene Karte. Wenn eine direkte Antwort verständlicher
+ist, werden keine künstlichen Schritte erzeugt.
+
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**
 entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.

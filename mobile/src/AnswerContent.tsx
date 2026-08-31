@@ -34,7 +34,11 @@ function script(value: string, table: Record<string, string>, marker: string): s
 
 function readableLatex(value: string): string {
   let result = value
+    .replace(/\\begin\{(?:aligned\*?|align\*?|equation\*?)\}/g, '')
+    .replace(/\\end\{(?:aligned\*?|align\*?|equation\*?)\}/g, '')
     .replace(/\\left|\\right/g, '')
+    .replace(/&/g, '')
+    .replace(/\\\\/g, '\n')
     .replace(/\\,/g, ' ')
     .replace(/\\text\{([^}]*)\}/g, '$1')
     .replace(/\\operatorname\{([^}]*)\}/g, '$1')
@@ -110,6 +114,15 @@ function MathBlock({ latex, compact = false }: { latex: string; compact?: boolea
       </View>
     );
   }
+  const aligned = latex.match(/\\begin\{(?:aligned\*?|align\*?|equation\*?)\}([\s\S]*?)\\end\{(?:aligned\*?|align\*?|equation\*?)\}/);
+  if (aligned) {
+    const rows = aligned[1].split('\\\\').map((row) => row.replaceAll('&', '').trim()).filter(Boolean);
+    return (
+      <View style={[styles.mathCard, styles.alignedMath, compact && styles.compactCard]}>
+        {rows.map((row, index) => <MathExpression latex={row} compact={compact} key={index} />)}
+      </View>
+    );
+  }
   return <View style={[styles.mathCard, compact && styles.compactCard]}><MathExpression latex={latex} compact={compact} /></View>;
 }
 
@@ -176,7 +189,7 @@ const styles = StyleSheet.create({
   headingLarge: { color: '#f3fff7', fontSize: 22, lineHeight: 28, fontWeight: '900' }, heading: { color: '#effaf2', fontSize: 19, lineHeight: 25, fontWeight: '800' }, headingSmall: { color: '#dce9e0', fontSize: 16, lineHeight: 22, fontWeight: '800' },
   bulletRow: { flexDirection: 'row', gap: 9, paddingRight: 12 }, bullet: { minWidth: 18, color: '#70ff9b', fontSize: 16, lineHeight: 24, fontWeight: '800' },
   codeCard: { borderRadius: 16, backgroundColor: '#050a07', borderWidth: 1, borderColor: '#293a30', overflow: 'hidden' }, codeLanguage: { color: '#70ff9b', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, paddingHorizontal: 14, paddingTop: 11 }, code: { color: '#d8e6dc', fontFamily: 'monospace', fontSize: 14, lineHeight: 21, padding: 14 }, codeCompact: { fontSize: 12, lineHeight: 17, paddingTop: 9 },
-  mathCard: { minHeight: 66, borderRadius: 16, backgroundColor: '#0a1710', borderWidth: 1, borderColor: '#31503b', padding: 14, alignItems: 'center', justifyContent: 'center' }, compactCard: { minHeight: 48, padding: 9 }, mathRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 4 }, mathText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 24, lineHeight: 34 }, mathTextCompact: { fontSize: 19, lineHeight: 26 },
+  mathCard: { minHeight: 66, borderRadius: 16, backgroundColor: '#0a1710', borderWidth: 1, borderColor: '#31503b', padding: 14, alignItems: 'center', justifyContent: 'center' }, alignedMath: { gap: 5 }, compactCard: { minHeight: 48, padding: 9 }, mathRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 4 }, mathText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 24, lineHeight: 34 }, mathTextCompact: { fontSize: 19, lineHeight: 26 },
   fraction: { minWidth: 28, alignItems: 'stretch', marginHorizontal: 3 }, fractionText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 18, textAlign: 'center', paddingHorizontal: 3 }, fractionTextCompact: { fontSize: 14 }, fractionLine: { height: 1.5, backgroundColor: '#e9fff0', marginVertical: 2 },
   matrix: { borderLeftWidth: 2, borderRightWidth: 2, borderColor: '#bdf8cc', paddingHorizontal: 8, gap: 4 }, matrixRow: { flexDirection: 'row' }, matrixCell: { minWidth: 42, color: '#e9fff0', fontFamily: 'serif', fontSize: 19, textAlign: 'center' },
 });

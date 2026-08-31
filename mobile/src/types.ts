@@ -14,12 +14,27 @@ export type AnswerBlock =
   | { type: 'code'; language: string; code: string }
   | { type: 'math'; latex: string; displayMode: boolean };
 
+export interface SolutionStep {
+  title: string;
+  explanation: string;
+  contentType: 'text' | 'math' | 'code';
+  content: string;
+  language: string | null;
+}
+
+export interface GuidedSolution {
+  kind: 'math' | 'code' | 'document' | 'concept' | 'direct' | 'selection';
+  title: string;
+  steps: SolutionStep[];
+}
+
 export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
   question: string;
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
+  solution?: GuidedSolution;
   spokenAnswer: string;
   evidence: string[];
   confidence: number;
@@ -32,6 +47,7 @@ export interface HistoryEntry {
   question: string;
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
+  solution?: GuidedSolution;
   spokenAnswer: string;
   confidence: number;
   blocks?: AnswerBlock[];

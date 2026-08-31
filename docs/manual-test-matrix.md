@@ -26,9 +26,17 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 - Codeantwort in mindestens Python und TypeScript prüfen; lange Zeilen müssen
   horizontal scrollbar und der Code markierbar sein.
 - Formeln mit `\\frac`, `\\sum`, `\\int`, `\\sqrt`, Hoch-/Tiefstellungen und
-  einer Matrix prüfen.
+  einer Matrix prüfen. Mehrzeilige `aligned`-Formeln dürfen keine sichtbaren
+  LaTeX-Befehle wie `beginaligned` enthalten.
+- Bei Mathematik prüfen: Ergebnis zuerst, danach eine Umformung pro Schritt und
+  abschließend die Vertiefung.
+- Bei Code prüfen: Ausgabe beziehungsweise Resultat zuerst, danach relevante
+  Ablaufstufen; bei Dokumenten Fundstelle vor Interpretation anzeigen.
+- Jeder Lernschritt muss auf der Brille eine eigene Karte belegen. Direkte
+  Wissensfragen dürfen ohne künstlichen Lösungsweg antworten.
 - Kontrollieren, dass TTS verständlichen Text statt roher LaTeX-Befehle vorliest.
 - Neue strukturierte und alte reine Textantworten aus dem Verlauf öffnen.
+- Lernschritte müssen nach dem Speichern im Verlauf erhalten bleiben.
 - Kompakte Code- beziehungsweise Formelkarte im simulierten Brillendisplay prüfen.
 - Bei einer längeren Codeantwort kontrollieren: Kurzantwort zuerst, Hinweis
   „Tippen für Code“, höchstens fünf Codezeilen je Karte und korrekter Fortschritt.

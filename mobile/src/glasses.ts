@@ -1,4 +1,4 @@
-import type { AnswerBlock, DocumentAnswer } from './types';
+import type { AnswerBlock, DocumentAnswer, SolutionStep } from './types';
 
 export interface GlassesCodeLine {
   sourceLine: number;
@@ -8,6 +8,7 @@ export interface GlassesCodeLine {
 
 export type GlassesCard =
   | { type: 'summary'; title: string; format: 'text' | 'output'; lines: string[]; nextHint: string | null }
+  | { type: 'step'; title: string; number: number; total: number; step: SolutionStep }
   | { type: 'code'; title: string; lines: GlassesCodeLine[] }
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
   | { type: 'note'; title: string; text: string };
@@ -58,6 +59,10 @@ function chunks<T>(values: T[], size: number): T[][] {
 export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const blocks = answer.blocks ?? [];
   const detailCards: GlassesCard[] = [];
+  const solutionSteps = answer.solution?.steps ?? [];
+  solutionSteps.forEach((step, index) => detailCards.push({
+    type: 'step', title: `SCHRITT ${index + 1}/${solutionSteps.length}`, number: index + 1, total: solutionSteps.length, step,
+  }));
   for (const block of blocks) {
     if (block.type === 'code') {
       for (const page of chunks(wrapCode(block.code), codeLinesPerCard)) {
@@ -72,6 +77,8 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
     ? 'Tippen für Code'
     : firstDetail?.type === 'math'
       ? 'Tippen für Formel'
+      : firstDetail?.type === 'step'
+        ? 'Tippen für Lösungsweg'
       : firstDetail
         ? 'Tippen für Details'
         : null;

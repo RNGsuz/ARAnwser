@@ -7,6 +7,7 @@ describe("structured answer schema", () => {
     const result = answerSchema.parse({
       shortAnswer: "Drei Darstellungen",
       glassesSummary: { format: "output", lines: ["a) 7", "b) \"ABC\""] },
+      solution: { kind: "math", title: "Lösungsweg", steps: [{ title: "Summieren", explanation: "Die Terme werden addiert.", contentType: "math", content: "1 + 2 = 3", language: null }] },
       spokenAnswer: "Die Antwort enthält erklärenden Text, Programmcode und eine mathematische Formel.",
       evidence: [],
       confidence: 0.98,
@@ -26,6 +27,7 @@ describe("structured answer schema", () => {
     expect(() => answerSchema.parse({
       shortAnswer: "Test",
       glassesSummary: { format: "text", lines: ["Test"] },
+      solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
       confidence: 1,
@@ -39,6 +41,7 @@ describe("structured answer schema", () => {
     expect(() => answerSchema.parse({
       shortAnswer: "Test",
       glassesSummary: { format: "output", lines: [] },
+      solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
       confidence: 1,

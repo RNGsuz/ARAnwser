@@ -18,6 +18,11 @@ const config: Config = {
 const answer = {
   shortAnswer: "42",
   glassesSummary: { format: "output" as const, lines: ["a) 42"] },
+  solution: {
+    kind: "math" as const,
+    title: "Lösungsweg",
+    steps: [{ title: "Addieren", explanation: "Die beiden Werte werden addiert.", contentType: "math" as const, content: "40 + 2 = 42", language: null }],
+  },
   spokenAnswer: "Die Antwort ist 42.",
   evidence: ["Auf der Folie steht 42."],
   confidence: 0.95,
@@ -104,6 +109,9 @@ describe("query API", () => {
     }));
     expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({
       previousAnswer: expect.stringContaining("int value = 42;"),
+    }));
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({
+      previousAnswer: expect.stringContaining("Step 1 – Addieren"),
     }));
     await app.close();
   });
