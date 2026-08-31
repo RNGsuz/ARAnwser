@@ -46,6 +46,13 @@ Methodensignaturen. Nicht sicher prüfbare Mathematik wird unverändert an die
 Modell- und Testpipeline weitergereicht, statt durch einen unsicheren Parser
 bewertet zu werden.
 
+Folgefragen verwenden standardmäßig nur den bereits extrahierten Text- und
+Antwortkontext. Das flüchtig gehaltene Bild wird nur bei neuen visuellen
+Detailfragen erneut übertragen, etwa zu Farbe, Position, Tabellenzeilen,
+Beschriftungen oder sichtbarem Hintergrund. Ein Update der Sitzung kopiert den
+Bildpuffer vor dem sicheren Löschen des alten Puffers, damit spätere berechtigte
+Detailfragen weiterhin das unveränderte Foto erhalten.
+
 ## Expo-Prototyp starten
 
 Handy und Entwicklungsrechner müssen im selben Netzwerk sein. Zuerst die

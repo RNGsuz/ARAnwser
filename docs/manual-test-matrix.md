@@ -26,6 +26,10 @@ Dokumente für Testaufnahmen verwenden.
   Transkriptprüfung und Korrektur müssen weiterhin funktionieren.
 - Foto wiederholen und Folgefrage senden; der ursprünglich gewählte Modus muss
   jeweils erhalten bleiben.
+- Nach einer Bildantwort „Warum ist das interessant?“ fragen; das Backend darf das
+  Bild nicht erneut an die Modellpipeline geben. Danach nach Farbe, Position oder
+  einer Tabellenzeile fragen; hierfür muss der unveränderte flüchtige Bildpuffer
+  erneut verwendet werden.
 
 ## Deterministische Verifikation
 

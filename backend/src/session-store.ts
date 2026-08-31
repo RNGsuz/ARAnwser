@@ -14,10 +14,11 @@ export class SessionStore {
   }
 
   set(id: string, input: QueryInput): void {
+    const imageCopy = input.image ? Buffer.from(input.image) : undefined;
     this.delete(id);
     this.sessions.set(id, {
       ...input,
-      ...(input.image ? { image: Buffer.from(input.image) } : {}),
+      ...(imageCopy ? { image: imageCopy } : {}),
       expiresAt: Date.now() + this.ttlMs,
     });
   }

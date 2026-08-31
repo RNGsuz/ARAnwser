@@ -159,6 +159,16 @@ describe("query API", () => {
     expect(followUp.statusCode).toBe(200);
     expect(vision.answer).toHaveBeenCalledTimes(2);
     expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({ intent: "discover" }));
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.not.objectContaining({ image: expect.any(Buffer) }));
+
+    const visualFollowUp = await app.inject({
+      method: "POST",
+      url: "/v1/queries/session-1/follow-ups",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { question: "Was steht in der dritten Tabellenzeile?" },
+    });
+    expect(visualFollowUp.statusCode).toBe(200);
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({ image: expect.any(Buffer), imageMimeType: "image/jpeg" }));
 
     const removed = await app.inject({ method: "DELETE", url: "/v1/sessions/session-1", headers: { authorization: "Bearer 1234567890123456" } });
     expect(removed.statusCode).toBe(204);

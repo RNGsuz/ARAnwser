@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Config } from "./config.js";
 import { SessionStore } from "./session-store.js";
 import type { Answer, QueryInput, VisionService } from "./types.js";
+import { shouldResendImageForFollowUp } from "./follow-up-policy.js";
 
 const followUpSchema = z.object({
   question: z.string().trim().min(1).max(1000),
@@ -186,9 +187,17 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     if (!parsed.success) return reply.code(400).send({ error: "invalid_follow_up" });
     const previous = sessions.get(id);
     if (!previous) return reply.code(404).send({ error: "session_expired" });
-    const input = { ...previous, question: parsed.data.question, locale: parsed.data.locale, includeSteps: parsed.data.includeSteps };
+    const resendImage = shouldResendImageForFollowUp(parsed.data.question, previous);
+    const { image, imageMimeType, ...textContext } = previous;
+    const input: QueryInput = {
+      ...textContext,
+      ...(resendImage && image && imageMimeType ? { image, imageMimeType } : {}),
+      question: parsed.data.question,
+      locale: parsed.data.locale,
+      includeSteps: parsed.data.includeSteps,
+    };
     const answer = await vision.answer(input);
-    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
+    sessions.set(id, { ...previous, question: input.question, locale: input.locale, includeSteps: input.includeSteps, previousQuestion: input.question, previousAnswer: answerContext(answer) });
     return { queryId: randomUUID(), sessionId: id, question: input.question, ...answer };
   });
 
