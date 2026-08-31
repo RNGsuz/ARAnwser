@@ -66,7 +66,7 @@ describe("query API", () => {
   });
 
   it("reports an incomplete AI response distinctly", async () => {
-    const vision: VisionService = { answer: vi.fn().mockRejectedValue(new Error("ai_response_incomplete")), transcribe: vi.fn() };
+    const vision: VisionService = { answer: vi.fn().mockRejectedValue(new Error("ai_response_incomplete")), classify: vi.fn(), transcribe: vi.fn() };
     const app = await buildApp(config, vision);
     const response = await app.inject({
       method: "POST",
@@ -82,6 +82,7 @@ describe("query API", () => {
   it("returns a transcript before a query is submitted", async () => {
     const vision: VisionService = {
       answer: vi.fn(),
+      classify: vi.fn(),
       transcribe: vi.fn().mockResolvedValue("  Was ist der Median?  "),
     };
     const app = await buildApp(config, vision);
@@ -101,7 +102,7 @@ describe("query API", () => {
 
   it("answers a general question without requiring an image", async () => {
     const codeAnswer = { ...answer, blocks: [{ type: "code" as const, language: "java", code: "int value = 42;" }] };
-    const vision: VisionService = { answer: vi.fn().mockResolvedValueOnce(codeAnswer).mockResolvedValue(answer), transcribe: vi.fn() };
+    const vision: VisionService = { answer: vi.fn().mockResolvedValueOnce(codeAnswer).mockResolvedValue(answer), classify: vi.fn(), transcribe: vi.fn() };
     const app = await buildApp(config, vision);
     const response = await app.inject({
       method: "POST",
@@ -137,7 +138,7 @@ describe("query API", () => {
   });
 
   it("answers and supports an in-memory follow-up", async () => {
-    const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), transcribe: vi.fn() };
+    const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), classify: vi.fn(), transcribe: vi.fn() };
     const app = await buildApp(config, vision);
     const boundary = "test-boundary";
     const first = await app.inject({
@@ -178,6 +179,7 @@ describe("query API", () => {
   it("transcribes a spoken follow-up and reuses the existing image", async () => {
     const vision: VisionService = {
       answer: vi.fn().mockResolvedValue(answer),
+      classify: vi.fn(),
       transcribe: vi.fn().mockResolvedValue("Löse Aufgabe zwei."),
     };
     const app = await buildApp(config, vision);
@@ -204,8 +206,39 @@ describe("query API", () => {
     await app.close();
   });
 
+  it("classifies an uploaded image and reuses it for the selected pipeline", async () => {
+    const vision: VisionService = {
+      answer: vi.fn().mockResolvedValue(answer),
+      classify: vi.fn().mockResolvedValue({ suggestedMode: "read", reason: "Eine Informationsfolie ist sichtbar.", confidence: 0.96 }),
+      transcribe: vi.fn(),
+    };
+    const app = await buildApp(config, vision);
+    const boundary = "classification-boundary";
+    const classified = await app.inject({
+      method: "POST",
+      url: "/v1/classifications",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${boundary}` },
+      payload: multipart(boundary, { sessionId: "auto-session", locale: "de-DE" }),
+    });
+    expect(classified.statusCode).toBe(201);
+    expect(classified.json()).toEqual({ sessionId: "auto-session", suggestedMode: "read", reason: "Eine Informationsfolie ist sichtbar.", confidence: 0.96 });
+    expect(vision.classify).toHaveBeenCalledWith(expect.any(Buffer), "image/jpeg", "de-DE");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/classifications/auto-session/answer",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { intent: "read", question: "Fasse den sichtbaren Inhalt zusammen.", includeSteps: false, locale: "de-DE" },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(vision.answer).toHaveBeenCalledWith(expect.objectContaining({
+      image: expect.any(Buffer), imageMimeType: "image/jpeg", intent: "read", includeSteps: false,
+    }));
+    await app.close();
+  });
+
   it("enforces the configured daily AI request limit", async () => {
-    const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), transcribe: vi.fn() };
+    const vision: VisionService = { answer: vi.fn().mockResolvedValue(answer), classify: vi.fn(), transcribe: vi.fn() };
     const app = await buildApp({ ...config, DAILY_QUERY_LIMIT: 1 }, vision);
     const boundary = "limit-boundary";
     const payload = multipart(boundary, { question: "Test" });

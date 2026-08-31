@@ -9,10 +9,10 @@ import {
   Animated, Easing, PanResponder, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
-import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, transcribeAudio } from './src/api';
+import { classifyImage, createClassifiedQuery, createFollowUp, createGeneralQuestion, createQuery, deleteSession, transcribeAudio } from './src/api';
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings, type CodeScrollMode } from './src/settings';
-import type { AnswerBlock, AssistantMode, AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep } from './src/types';
+import type { AnswerBlock, AssistantMode, AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep, VisualMode, VisualModeClassification } from './src/types';
 import { AnswerContent, MathLine } from './src/AnswerContent';
 import { buildGlassesCards, wrapCode, type GlassesCard } from './src/glasses';
 
@@ -23,6 +23,16 @@ const labels: Record<AssistantState, string> = {
 
 function newSessionId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function questionForMode(mode: VisualMode, explainSteps: boolean, readingAction: 'summary' | 'transcribe' = 'summary'): string {
+  if (mode === 'discover') return 'Identifiziere und erkläre das zentrale Objekt, Tier, die Pflanze, das Kunstwerk, Lebensmittel oder die sichtbare Szene. Erstelle eine kompakte Infobox mit nützlichen Nice-to-know-Fakten und benenne Unsicherheit sowie relevante Sicherheitshinweise.';
+  if (mode === 'read') return readingAction === 'transcribe'
+    ? 'Gib den deutlich lesbaren Text originalgetreu und in sichtbarer Reihenfolge wieder. Ergänze nur notwendige kurze Hinweise zu Tabellen, Diagrammen oder unleserlichen Stellen und löse keine Aufgaben.'
+    : 'Fasse den sichtbaren Inhalt knapp zusammen. Nenne die wichtigsten Aussagen und erkläre relevante Tabellen, Diagramme oder andere visuelle Elemente. Löse keine sichtbaren Aufgaben.';
+  return explainSteps
+    ? 'Löse die klar erkennbare Aufgabe vollständig und erkläre den Lösungsweg kurz. Zusammengehörige Unterfragen wie a), b), c) sind ein einziges Beispiel und sollen alle beantwortet werden. Frage nur dann nach einer Auswahl, wenn mehrere voneinander unabhängige Aufgaben oder Beispiele auf einer Buch- oder Arbeitsblattseite sichtbar sind; nummeriere diese dann knapp.'
+    : 'Gib die knappen Antworten auf die klar erkennbare Aufgabe. Zusammengehörige Unterfragen wie a), b), c) sind ein einziges Beispiel und sollen alle beantwortet werden. Frage nur dann nach einer Auswahl, wenn mehrere voneinander unabhängige Aufgaben oder Beispiele sichtbar sind; nummeriere diese dann knapp.';
 }
 
 async function speakThroughMediaOutput(text: string): Promise<void> {
@@ -52,6 +62,8 @@ export default function App() {
   const [pageScrollEnabled, setPageScrollEnabled] = useState(true);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [assistantMode, setAssistantMode] = useState<AssistantMode | null>(null);
+  const [automaticCapture, setAutomaticCapture] = useState(false);
+  const [classification, setClassification] = useState<VisualModeClassification | null>(null);
   const [modeSuggestionDismissed, setModeSuggestionDismissed] = useState(false);
   const handleCodeInteractionChange = useCallback((active: boolean) => setPageScrollEnabled(!active), []);
 
@@ -63,8 +75,8 @@ export default function App() {
 
   useEffect(() => { setShowDiagnostics(false); setModeSuggestionDismissed(false); }, [answer?.queryId]);
 
-  async function openCamera(mode = assistantMode) {
-    if (mode !== 'discover' && mode !== 'read' && mode !== 'solve') return;
+  async function openCamera(mode: VisualMode | 'auto' | null = assistantMode === 'question' ? null : assistantMode) {
+    if (mode !== 'auto' && mode !== 'discover' && mode !== 'read' && mode !== 'solve') return;
     try {
       retryAction.current = null;
       setError(null);
@@ -75,7 +87,9 @@ export default function App() {
       if (answer) await deleteSession(currentSession).catch(() => undefined);
       setAnswer(null);
       setPhotoUri(null);
-      setAssistantMode(mode);
+      setAutomaticCapture(mode === 'auto');
+      setClassification(null);
+      setAssistantMode(mode === 'auto' ? null : mode);
       const nextSession = newSessionId();
       setCurrentSession(nextSession);
       setState('camera');
@@ -98,9 +112,40 @@ export default function App() {
       );
       setPhotoUri(cleaned.uri);
       setState('captured');
+      if (automaticCapture) await classifyCaptured(cleaned.uri, currentSession);
     } catch (cause) {
       fail(cause);
     }
+  }
+
+  async function classifyCaptured(imageUri: string, targetSession: string) {
+    if (requestActive.current) return;
+    requestActive.current = true;
+    retryAction.current = () => classifyCaptured(imageUri, targetSession);
+    try {
+      setError(null);
+      setState('processing');
+      const result = await classifyImage(imageUri, targetSession);
+      setClassification(result);
+      if (result.confidence >= 0.9) {
+        setAssistantMode(result.suggestedMode);
+        await acceptAnswer(await createClassifiedQuery(targetSession, result.suggestedMode, questionForMode(result.suggestedMode, settings.explainSteps), settings.explainSteps));
+      } else {
+        retryAction.current = null;
+        setState('captured');
+      }
+    } catch (cause) {
+      fail(cause);
+    } finally {
+      requestActive.current = false;
+    }
+  }
+
+  async function submitClassified(mode: VisualMode) {
+    setAssistantMode(mode);
+    const action = () => createClassifiedQuery(currentSession, mode, questionForMode(mode, settings.explainSteps), settings.explainSteps);
+    retryAction.current = () => executeRequest(action);
+    await executeRequest(action);
   }
 
   async function startVoiceQuestion(imageUri = photoUri, fromCapture = false) {
@@ -149,22 +194,14 @@ export default function App() {
     imageUri = photoUri,
     targetSession = currentSession,
     fromCapture = false,
-    mode: 'solve' | 'discover' | 'read' = assistantMode === 'discover' ? 'discover' : assistantMode === 'read' ? 'read' : 'solve',
+    mode: VisualMode = assistantMode === 'discover' ? 'discover' : assistantMode === 'read' ? 'read' : 'solve',
     readingAction: 'summary' | 'transcribe' = 'summary',
   ) {
     if (!imageUri || (!fromCapture && state !== 'captured')) return;
     const action = () => createQuery(imageUri, targetSession, {
       includeSteps: settings.explainSteps,
       intent: mode,
-      question: mode === 'discover'
-        ? 'Identifiziere und erkläre das zentrale Objekt, Tier, die Pflanze, das Kunstwerk, Lebensmittel oder die sichtbare Szene. Erstelle eine kompakte Infobox mit nützlichen Nice-to-know-Fakten und benenne Unsicherheit sowie relevante Sicherheitshinweise.'
-        : mode === 'read'
-          ? readingAction === 'transcribe'
-            ? 'Gib den deutlich lesbaren Text originalgetreu und in sichtbarer Reihenfolge wieder. Ergänze nur notwendige kurze Hinweise zu Tabellen, Diagrammen oder unleserlichen Stellen und löse keine Aufgaben.'
-            : 'Fasse den sichtbaren Inhalt knapp zusammen. Nenne die wichtigsten Aussagen und erkläre relevante Tabellen, Diagramme oder andere visuelle Elemente. Löse keine sichtbaren Aufgaben.'
-        : settings.explainSteps
-          ? 'Löse die klar erkennbare Aufgabe vollständig und erkläre den Lösungsweg kurz. Zusammengehörige Unterfragen wie a), b), c) sind ein einziges Beispiel und sollen alle beantwortet werden. Frage nur dann nach einer Auswahl, wenn mehrere voneinander unabhängige Aufgaben oder Beispiele auf einer Buch- oder Arbeitsblattseite sichtbar sind; nummeriere diese dann knapp.'
-          : 'Gib die knappen Antworten auf die klar erkennbare Aufgabe. Zusammengehörige Unterfragen wie a), b), c) sind ein einziges Beispiel und sollen alle beantwortet werden. Frage nur dann nach einer Auswahl, wenn mehrere voneinander unabhängige Aufgaben oder Beispiele sichtbar sind; nummeriere diese dann knapp.',
+      question: questionForMode(mode, settings.explainSteps, readingAction),
     });
     retryAction.current = () => executeRequest(action);
     await executeRequest(action);
@@ -282,7 +319,8 @@ export default function App() {
     }
     if (!photoUri) return;
     setAssistantMode(mode);
-    await submitDirectly(photoUri, currentSession, true, mode);
+    if (automaticCapture) await submitClassified(mode);
+    else await submitDirectly(photoUri, currentSession, true, mode);
   }
 
   async function cancel() {
@@ -292,6 +330,8 @@ export default function App() {
     setState('idle');
     setAnswer(null);
     setPhotoUri(null);
+    setAutomaticCapture(false);
+    setClassification(null);
     setError(null);
     setPendingTranscript('');
     retryAction.current = null;
@@ -317,7 +357,7 @@ export default function App() {
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" scrollEnabled={pageScrollEnabled}>
             <View style={styles.header}>
               <View>
-                <Text style={styles.eyebrow}>{state === 'idle' ? 'DEIN VISUELLER ASSISTENT' : `${assistantMode === 'discover' ? 'ENTDECKEN' : assistantMode === 'read' ? 'LESEN & VERSTEHEN' : assistantMode === 'solve' ? 'AUFGABE LÖSEN' : assistantMode === 'question' ? 'FRAGE STELLEN' : 'ASSISTENT'} · ${labels[state].toUpperCase()}`}</Text>
+                <Text style={styles.eyebrow}>{state === 'idle' ? 'DEIN VISUELLER ASSISTENT' : `${automaticCapture && !assistantMode ? 'AUTOMATISCH ERKENNEN' : assistantMode === 'discover' ? 'ENTDECKEN' : assistantMode === 'read' ? 'LESEN & VERSTEHEN' : assistantMode === 'solve' ? 'AUFGABE LÖSEN' : assistantMode === 'question' ? 'FRAGE STELLEN' : 'ASSISTENT'} · ${labels[state].toUpperCase()}`}</Text>
                 <Text style={styles.title}>{state === 'idle' ? 'AR Answer' : state === 'answer' ? 'Antwort' : 'Assistent'}</Text>
               </View>
               {state !== 'idle' ? <Pressable style={styles.iconButton} onPress={cancel} accessibilityLabel="Zurück zum Start"><Text style={styles.iconText}>×</Text></Pressable> : null}
@@ -326,18 +366,24 @@ export default function App() {
             {state === 'idle' && !answer && !error ? (
               <View style={styles.homeContent}>
                 <Text style={styles.heroTitle}>Sehen, fragen,{`\n`}verstehen.</Text>
-                <Text style={styles.heroCopy}>Wähle zuerst, was du mit der Aufnahme oder Frage erreichen möchtest.</Text>
-                <Pressable style={[styles.modeCard, styles.discoveryModeCard]} onPress={() => openCamera('discover')}>
+                <Text style={styles.heroCopy}>Lass die App den passenden Bildmodus erkennen oder wähle ihn direkt.</Text>
+                <Pressable style={styles.autoModeCard} onPress={() => openCamera('auto')}>
+                  <View style={styles.autoModeIcon}><Text style={styles.autoModeIconText}>✦</Text></View>
+                  <View style={styles.modeCopy}><Text style={styles.autoModeTitle}>Automatisch erkennen</Text><Text style={styles.autoModeDescription}>Foto aufnehmen – Entdecken, Lesen oder Lösen wird passend gewählt</Text></View>
+                  <Text style={styles.modeArrow}>›</Text>
+                </Pressable>
+                <Text style={styles.quickModesLabel}>ODER DIREKT WÄHLEN</Text>
+                <Pressable style={[styles.modeCard, styles.compactModeCard, styles.discoveryModeCard]} onPress={() => openCamera('discover')}>
                   <View style={[styles.modeIcon, styles.discoveryModeIcon]}><Text style={styles.modeIconText}>◎</Text></View>
                   <View style={styles.modeCopy}><Text style={styles.modeTitle}>Entdecken</Text><Text style={styles.modeDescription}>Objekte, Tiere, Pflanzen und Orte kennenlernen</Text></View>
                   <Text style={styles.modeArrow}>›</Text>
                 </Pressable>
-                <Pressable style={[styles.modeCard, styles.cameraModeCard]} onPress={() => openCamera('solve')}>
+                <Pressable style={[styles.modeCard, styles.compactModeCard, styles.cameraModeCard]} onPress={() => openCamera('solve')}>
                   <View style={styles.modeIcon}><Text style={styles.modeIconText}>▣</Text></View>
                   <View style={styles.modeCopy}><Text style={styles.modeTitle}>Aufgabe lösen</Text><Text style={styles.modeDescription}>Mathematik, Code und Textaufgaben</Text></View>
                   <Text style={styles.modeArrow}>›</Text>
                 </Pressable>
-                <Pressable style={[styles.modeCard, styles.readingModeCard]} onPress={() => openCamera('read')}>
+                <Pressable style={[styles.modeCard, styles.compactModeCard, styles.readingModeCard]} onPress={() => openCamera('read')}>
                   <View style={[styles.modeIcon, styles.readingModeIcon]}><Text style={styles.modeIconText}>Aa</Text></View>
                   <View style={styles.modeCopy}><Text style={styles.modeTitle}>Lesen & Verstehen</Text><Text style={styles.modeDescription}>Slides, Dokumente, Tabellen und Diagramme</Text></View>
                   <Text style={styles.modeArrow}>›</Text>
@@ -358,7 +404,7 @@ export default function App() {
                   <View style={styles.documentGuide} pointerEvents="none">
                     <View style={[styles.guideCorner, styles.guideTopLeft]} /><View style={[styles.guideCorner, styles.guideTopRight]} />
                     <View style={[styles.guideCorner, styles.guideBottomLeft]} /><View style={[styles.guideCorner, styles.guideBottomRight]} />
-                    <Text style={styles.guideText}>{assistantMode === 'discover' ? 'Objekt gut sichtbar und möglichst nah aufnehmen' : assistantMode === 'read' ? 'Dokument oder Slide vollständig im Rahmen halten' : 'Aufgabe vollständig im Rahmen halten'}</Text>
+                    <Text style={styles.guideText}>{automaticCapture ? 'Motiv vollständig und gut lesbar aufnehmen' : assistantMode === 'discover' ? 'Objekt gut sichtbar und möglichst nah aufnehmen' : assistantMode === 'read' ? 'Dokument oder Slide vollständig im Rahmen halten' : 'Aufgabe vollständig im Rahmen halten'}</Text>
                   </View>
                   <View style={styles.captureBadge}><View style={[styles.dot, state === 'capturing' && styles.dotActive]} /><Text style={styles.captureText}>AUFNAHME NUR PER TASTE</Text></View>
                 </View>
@@ -371,6 +417,13 @@ export default function App() {
             {state === 'captured' && photoUri ? (
               <View style={styles.previewWorkspace}>
                 <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
+                {automaticCapture && classification ? <View style={styles.classificationPanel}>
+                  <Text style={styles.sectionLabel}>NICHT EINDEUTIG · {Math.round(classification.confidence * 100)} %</Text>
+                  <Text style={styles.classificationTitle}>Was möchtest du mit dem Foto machen?</Text>
+                  <Text style={styles.classificationReason}>Vorschlag: {modeName(classification.suggestedMode)} – {classification.reason}</Text>
+                  {(['discover', 'read', 'solve'] as VisualMode[]).map((mode) => <Pressable key={mode} style={[styles.classificationChoice, mode === classification.suggestedMode && styles.classificationChoiceSuggested]} onPress={() => submitClassified(mode)}><Text style={styles.classificationChoiceText}>{modeName(mode)}</Text>{mode === classification.suggestedMode ? <Text style={styles.classificationBadge}>VORSCHLAG</Text> : null}</Pressable>)}
+                  <Pressable onPress={() => openCamera('auto')}><Text style={styles.textAction}>Foto erneut aufnehmen</Text></Pressable>
+                </View> : <>
                 <Text style={styles.sectionLabel}>{assistantMode === 'discover' ? 'ENTDECKEN · FOTO AUFGENOMMEN' : assistantMode === 'read' ? 'LESEN & VERSTEHEN · FOTO AUFGENOMMEN' : 'AUFGABE LÖSEN · FOTO AUFGENOMMEN'}</Text>
                 <Pressable style={styles.primaryButton} onPress={() => submitDirectly()}><Text style={styles.primaryButtonText}>{assistantMode === 'discover' ? 'Informationen anzeigen' : assistantMode === 'read' ? 'Kurz zusammenfassen' : 'Alle sichtbaren Aufgaben lösen'}</Text></Pressable>
                 {assistantMode === 'read' ? <Pressable style={styles.actionCard} onPress={() => submitDirectly(photoUri, currentSession, false, 'read', 'transcribe')}>
@@ -380,6 +433,7 @@ export default function App() {
                   <Text style={[styles.actionCardIcon, styles.recordIcon]}>●</Text><View style={styles.modeCopy}><Text style={styles.actionCardTitle}>{assistantMode === 'read' ? 'Eigene Frage zum Inhalt' : 'Eigene Frage zum Foto'}</Text><Text style={styles.modeDescription}>{assistantMode === 'discover' ? 'Zum Beispiel Herkunft, Material oder Verwendung' : assistantMode === 'read' ? 'Textstelle, Tabelle oder Diagramm gezielt erklären' : 'Bestimmte Aufgabe auswählen oder gezielt nachfragen'}</Text></View>
                 </Pressable>
                 <Pressable onPress={() => openCamera()}><Text style={styles.textAction}>Foto erneut aufnehmen</Text></Pressable>
+                </>}
               </View>
             ) : null}
 
@@ -779,10 +833,13 @@ const styles = StyleSheet.create({
   modal: { flex: 1, backgroundColor: '#08110d' }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#203027' }, modalTitle: { color: '#f3fff7', fontSize: 24, fontWeight: '800' }, modalAction: { color: '#70ff9b', fontSize: 16 },
   historyList: { padding: 20, gap: 12 }, historyPrivacy: { backgroundColor: '#102319', borderWidth: 1, borderColor: '#27533a', borderRadius: 16, padding: 14 }, historyPrivacyTitle: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, historyPrivacyText: { color: '#9aaba0', fontSize: 12, lineHeight: 17, marginTop: 3 }, historyEntry: { backgroundColor: '#121f17', padding: 16, borderRadius: 16, gap: 7 }, historyQuestion: { color: '#93a399', fontSize: 13 }, historyAnswer: { color: '#effaf2', fontSize: 17, fontWeight: '600' }, deleteEntry: { color: '#d78b8e', fontSize: 12, fontWeight: '700', paddingTop: 7 }, deleteHistory: { color: '#ff777b', textAlign: 'center', padding: 18 },
   homeContent: { gap: 14, paddingTop: 20 }, heroTitle: { color: '#f4fff7', fontSize: 42, lineHeight: 47, fontWeight: '900', letterSpacing: -1.2 }, heroCopy: { color: '#91a298', fontSize: 16, lineHeight: 24, marginBottom: 14, maxWidth: 330 },
+  autoModeCard: { minHeight: 132, borderRadius: 28, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 15, backgroundColor: '#173522', borderWidth: 2, borderColor: '#55ed80', shadowColor: '#55ed80', shadowOpacity: 0.14, shadowRadius: 16 }, autoModeIcon: { width: 60, height: 60, borderRadius: 20, backgroundColor: '#55ed80', alignItems: 'center', justifyContent: 'center' }, autoModeIconText: { color: '#07100c', fontSize: 29, fontWeight: '900' }, autoModeTitle: { color: '#f4fff7', fontSize: 20, fontWeight: '900' }, autoModeDescription: { color: '#afd0b8', fontSize: 12, lineHeight: 18, marginTop: 5 }, quickModesLabel: { color: '#63776b', fontSize: 10, fontWeight: '900', letterSpacing: 1.3, marginTop: 5, marginLeft: 4 },
   modeCard: { minHeight: 104, borderRadius: 24, padding: 17, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#111b15', borderWidth: 1, borderColor: '#26372d' }, discoveryModeCard: { backgroundColor: '#17231e', borderColor: '#386052' }, readingModeCard: { backgroundColor: '#171f25', borderColor: '#344b5a' }, cameraModeCard: { backgroundColor: '#12241a', borderColor: '#31553e' }, modeIcon: { width: 52, height: 52, borderRadius: 17, backgroundColor: '#254333', alignItems: 'center', justifyContent: 'center' }, discoveryModeIcon: { backgroundColor: '#24463e' }, readingModeIcon: { backgroundColor: '#243c49' }, voiceModeIcon: { backgroundColor: '#332329' }, modeIconText: { color: '#75f89a', fontSize: 22, fontWeight: '900' }, modeCopy: { flex: 1 }, modeTitle: { color: '#f0faf3', fontSize: 17, fontWeight: '800' }, modeDescription: { color: '#899990', fontSize: 12, lineHeight: 18, marginTop: 4 }, modeArrow: { color: '#668072', fontSize: 30, fontWeight: '300' },
+  compactModeCard: { minHeight: 82, borderRadius: 19, paddingVertical: 12 },
   privacyNote: { marginTop: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 9, paddingHorizontal: 8 }, privacyIcon: { color: '#70ff9b', fontSize: 17 }, privacyText: { flex: 1, color: '#687a70', fontSize: 11, lineHeight: 17 },
   cameraWorkspace: { gap: 18 }, shutterButton: { width: 74, height: 74, borderRadius: 37, borderWidth: 3, borderColor: '#eaf8ee', alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }, shutterInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#f3fff7' },
   previewWorkspace: { gap: 12 }, previewImage: { width: '100%', height: 250, borderRadius: 24, backgroundColor: '#111' }, sectionLabel: { color: '#70ff9b', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 }, actionCard: { minHeight: 70, borderRadius: 18, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#111d16', borderWidth: 1, borderColor: '#293b30' }, actionCardIcon: { width: 30, color: '#70ff9b', fontSize: 18, fontWeight: '900' }, recordIcon: { color: '#ff7176' }, actionCardTitle: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, textAction: { color: '#9fb0a6', fontSize: 14, fontWeight: '700', textAlign: 'center', padding: 12 },
+  classificationPanel: { gap: 11, borderRadius: 22, padding: 17, backgroundColor: '#151d18', borderWidth: 1, borderColor: '#3c4c42' }, classificationTitle: { color: '#f1fbf4', fontSize: 20, lineHeight: 26, fontWeight: '900' }, classificationReason: { color: '#9dacA2', fontSize: 13, lineHeight: 19, marginBottom: 4 }, classificationChoice: { minHeight: 52, borderRadius: 15, paddingHorizontal: 15, borderWidth: 1, borderColor: '#35473c', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, classificationChoiceSuggested: { backgroundColor: '#173522', borderColor: '#55ed80' }, classificationChoiceText: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, classificationBadge: { color: '#70ff9b', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   focusCard: { minHeight: 330, borderRadius: 28, backgroundColor: '#101b14', borderWidth: 1, borderColor: '#26372d', padding: 24, gap: 14, alignItems: 'center', justifyContent: 'center' }, listeningPulse: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#32191d', borderWidth: 1, borderColor: '#6d3037', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }, listeningDot: { color: '#ff646b', fontSize: 32 }, focusTitle: { color: '#f3fff7', fontSize: 27, fontWeight: '900' }, focusCopy: { color: '#92a299', fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 310 },
   errorCard: { borderRadius: 24, backgroundColor: '#251517', borderWidth: 1, borderColor: '#653237', padding: 20, gap: 15 }, errorLabel: { color: '#ff7a80', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 }, errorText: { color: '#f4e8e9', fontSize: 17, lineHeight: 25 },
   answerWorkspace: { gap: 15 }, answerMeta: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, answerMetaOnly: { borderTopWidth: 0, paddingTop: 0 }, speakAction: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, followUpCard: { borderRadius: 20, backgroundColor: '#0d1812', borderWidth: 1, borderColor: '#26372d', padding: 15, gap: 11 }, answerActions: { flexDirection: 'row', gap: 10 }, destructiveAction: { color: '#d9787d', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 12 },

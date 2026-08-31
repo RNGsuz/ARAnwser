@@ -63,6 +63,14 @@ export const modeSuggestionSchema = z.object({
   confidence: z.number().min(0.9).max(1),
 });
 
+export const visualModeClassificationSchema = z.object({
+  suggestedMode: z.enum(["discover", "read", "solve"]),
+  reason: z.string().min(1).max(180),
+  confidence: z.number().min(0).max(1),
+});
+
+export type VisualModeClassification = z.infer<typeof visualModeClassificationSchema>;
+
 export const answerSchema = z.object({
   answerKind: z.enum(["discovery", "reading", "solution", "general"]),
   modeSuggestion: modeSuggestionSchema.nullable().default(null),
@@ -107,5 +115,6 @@ export interface QueryInput {
 
 export interface VisionService {
   transcribe(audio: Buffer, filename: string, mimeType: string): Promise<string>;
+  classify(image: Buffer, mimeType: string, locale: string): Promise<VisualModeClassification>;
   answer(input: QueryInput): Promise<Answer>;
 }

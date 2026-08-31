@@ -21,6 +21,13 @@ const questionSchema = followUpSchema.extend({
   sessionId: z.string().trim().min(1).max(200).optional(),
 });
 
+const classifiedAnswerSchema = z.object({
+  intent: z.enum(["solve", "discover", "read"]),
+  question: z.string().trim().min(1).max(2000),
+  includeSteps: z.boolean().default(true),
+  locale: z.string().trim().min(2).max(20).default("de-DE"),
+});
+
 function authorized(header: string | undefined, expected?: string): boolean {
   if (!expected) return true;
   if (!header?.startsWith("Bearer ")) return false;
@@ -82,7 +89,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     if (!authorized(request.headers.authorization, config.CLIENT_TOKEN)) {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    if (request.method === "POST" && (request.url.startsWith("/v1/queries") || request.url === "/v1/questions")) {
+    if (request.method === "POST" && (request.url.startsWith("/v1/queries") || request.url.startsWith("/v1/classifications") || request.url === "/v1/questions")) {
       const today = new Date().toISOString().slice(0, 10);
       if (today !== usageDay) {
         usageDay = today;
@@ -124,6 +131,36 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     const answer = await vision.answer(input);
     sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
     return reply.code(201).send({ queryId: randomUUID(), sessionId, question: input.question, ...answer });
+  });
+
+  app.post("/v1/classifications", async (request, reply) => {
+    const fields: Record<string, string> = {};
+    let image: { data: Buffer; mime: string } | undefined;
+    for await (const part of request.parts()) {
+      if (part.type === "field") fields[part.fieldname] = String(part.value);
+      else if (part.fieldname === "image") image = { data: await part.toBuffer(), mime: part.mimetype };
+    }
+    if (!image) return reply.code(400).send({ error: "valid_image_required" });
+    const verifiedImageMime = sniffImageMime(image.data, image.mime);
+    if (!verifiedImageMime) return reply.code(400).send({ error: "valid_image_required" });
+    if (image.data.length > config.MAX_IMAGE_BYTES) return reply.code(413).send({ error: "image_too_large" });
+    const sessionId = fields.sessionId?.trim() || randomUUID();
+    const locale = (fields.locale || "de-DE").slice(0, 20);
+    const classification = await vision.classify(image.data, verifiedImageMime, locale);
+    sessions.set(sessionId, { image: image.data, imageMimeType: verifiedImageMime, question: "Automatische Moduserkennung", locale });
+    return reply.code(201).send({ sessionId, ...classification });
+  });
+
+  app.post("/v1/classifications/:id/answer", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = classifiedAnswerSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_classified_answer" });
+    const previous = sessions.get(id);
+    if (!previous?.image || !previous.imageMimeType) return reply.code(404).send({ error: "session_expired" });
+    const input: QueryInput = { image: previous.image, imageMimeType: previous.imageMimeType, ...parsed.data };
+    const answer = await vision.answer(input);
+    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
+    return reply.code(201).send({ queryId: randomUUID(), sessionId: id, question: input.question, ...answer });
   });
 
   app.post("/v1/queries", async (request, reply) => {

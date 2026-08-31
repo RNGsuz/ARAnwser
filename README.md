@@ -1,9 +1,9 @@
 # AR Answer
 
-Ein hardwareunabhängiger MVP für eine Display-Brille mit drei bewussten
-Einstiegen: Objekte per Foto entdecken, Aufgaben auf Dokumenten und Slides lösen
-oder allgemeine Fragen ohne Foto sprechen. Folgefragen verwenden den letzten
-flüchtigen Sitzungskontext.
+Ein hardwareunabhängiger MVP für eine Display-Brille: Fotos können automatisch
+als Objekt, Lesematerial oder Aufgabe eingeordnet oder direkt in einem Modus
+gestartet werden; allgemeine Fragen funktionieren ohne Foto. Folgefragen
+verwenden den letzten flüchtigen Sitzungskontext.
 
 ## Architektur
 
@@ -84,7 +84,14 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
 
 ## Bedienung
 
-Der Assistent beginnt mit vier klar getrennten Modi:
+Der Assistent beginnt mit einem automatischen Fotoeinstieg und vier direkten
+Modi:
+
+- **Automatisch erkennen** lädt das Foto einmal hoch und ordnet es zunächst mit
+  niedriger Bilddetailstufe **Entdecken**, **Lesen & Verstehen** oder
+  **Aufgabe lösen** zu. Ab 90 % Sicherheit startet die passende Pipeline;
+  darunter fragt die App nach. Das flüchtig gespeicherte Bild wird serverseitig
+  wiederverwendet.
 
 - **Entdecken** fotografiert ein Objekt, Tier, eine Pflanze, ein Kunstwerk,
   Lebensmittel oder eine Szene und erzeugt eine kompakte Infobox mit
@@ -99,8 +106,10 @@ Der Assistent beginnt mit vier klar getrennten Modi:
 - **Frage stellen** nimmt eine allgemeine Sprachfrage ohne Foto auf und zeigt vor
   dem Absenden das bearbeitbare Transkript.
 
-Der Fotomodus bleibt für Folgefragen und erneute Aufnahmen erhalten. Die KI
-entscheidet ihn nicht eigenmächtig.
+Der Fotomodus bleibt für Folgefragen und erneute Aufnahmen erhalten. Nur der
+ausdrückliche Einstieg **Automatisch erkennen** darf ihn ab 90 % Sicherheit
+direkt wählen; bei manuellen Einstiegen gibt es höchstens einen bestätigbaren
+Wechselvorschlag.
 
 1. Foto bewusst per Taste aufnehmen und das Dokument innerhalb des Rahmens halten.
 2. Zwischen direkter Lösung, **Was steht dort?** und einer eigenen Sprachfrage
@@ -179,6 +188,10 @@ Modus neu. Der Vorschlag kann mit **Hier bleiben** verworfen werden.
 
 ## API
 
+- `POST /v1/classifications`: multipart mit `image`, `sessionId` und `locale`;
+  speichert das Bild flüchtig und liefert Modus, Begründung und Konfidenz.
+- `POST /v1/classifications/:id/answer`: startet nach automatischer oder
+  manueller Auswahl die Fachpipeline mit dem bereits hochgeladenen Bild.
 - `POST /v1/queries`: multipart mit `image`, optional `audio`, `question`,
   `ocrText`, `locale`, `sessionId` und `includeSteps`.
 - `POST /v1/questions`: JSON mit `question`, `locale`, `includeSteps` und optional `sessionId`

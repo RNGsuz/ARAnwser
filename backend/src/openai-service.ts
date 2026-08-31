@@ -1,5 +1,5 @@
 import OpenAI, { toFile } from "openai";
-import { answerSchema, glassesExerciseSchema, recognizedItemSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
+import { answerSchema, glassesExerciseSchema, recognizedItemSchema, visualModeClassificationSchema, type Answer, type QueryInput, type VisionService, type VisualModeClassification } from "./types.js";
 import type { Config } from "./config.js";
 import { selectPipelinePolicy } from "./pipeline-policy.js";
 import { validateAnswerWithTools } from "./answer-validation.js";
@@ -320,6 +320,33 @@ export class OpenAIVisionService implements VisionService {
       response_format: "text",
     });
     return typeof result === "string" ? result.trim() : String(result).trim();
+  }
+
+  async classify(image: Buffer, mimeType: string, locale: string): Promise<VisualModeClassification> {
+    const response = await this.client.responses.create({
+      model: this.config.OPENAI_FAST_MODEL || this.config.OPENAI_VISION_MODEL,
+      store: false,
+      prompt_cache_key: "ar-answer:visual-classifier:v1",
+      reasoning: { effort: "low" },
+      instructions: [
+        `Classify the image for one user-facing mode. Write the short reason in ${locale}.`,
+        "solve: a visible exercise, question, worksheet, exam task, or code assignment that asks for an answer or implementation.",
+        "read: an informational document, slide, page, sign, table, or diagram to read or summarize, without a task that should be solved.",
+        "discover: a physical object, animal, plant, food, artwork, place, or general scene to identify and explain.",
+        "Return calibrated confidence. Use less than 0.9 whenever the intent is ambiguous, the image mixes categories, or important content is unreadable.",
+      ].join(" "),
+      input: [{ role: "user", content: [{ type: "input_image", image_url: `data:${mimeType};base64,${image.toString("base64")}`, detail: "low" }] }],
+      text: { format: { type: "json_schema", name: "visual_mode", strict: true, schema: {
+        type: "object", additionalProperties: false, required: ["suggestedMode", "reason", "confidence"], properties: {
+          suggestedMode: { type: "string", enum: ["discover", "read", "solve"] },
+          reason: { type: "string", minLength: 1, maxLength: 180 },
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+        },
+      } } },
+      max_output_tokens: 180,
+    });
+    if (response.status === "incomplete") throw new Error("ai_response_incomplete");
+    return visualModeClassificationSchema.parse(JSON.parse(response.output_text));
   }
 
   async answer(input: QueryInput): Promise<Answer> {

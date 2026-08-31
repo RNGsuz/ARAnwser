@@ -67,6 +67,14 @@ export interface ReadingInfo {
 }
 
 export type AssistantMode = 'discover' | 'read' | 'solve' | 'question';
+export type VisualMode = Exclude<AssistantMode, 'question'>;
+
+export interface VisualModeClassification {
+  sessionId: string;
+  suggestedMode: VisualMode;
+  reason: string;
+  confidence: number;
+}
 
 export interface ModeSuggestion {
   suggestedMode: AssistantMode;

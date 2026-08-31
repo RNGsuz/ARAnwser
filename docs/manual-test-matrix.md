@@ -5,6 +5,17 @@ Dokumente für Testaufnahmen verwenden.
 
 ## Eingabemodi
 
+- **Automatisch erkennen** muss als primäre visuelle Aktion erscheinen; die drei
+  Bildmodi bleiben als kleinere direkte Schnellzugriffe erhalten.
+- Über die Automatik nacheinander ein klares Objekt, eine reine Informationsfolie
+  und eine eindeutige Aufgabe fotografieren. Ab 90 % muss direkt **Entdecken**,
+  **Lesen & Verstehen** beziehungsweise **Aufgabe lösen** starten.
+- Ein gemischtes oder mehrdeutiges Foto testen. Unter 90 % muss die App Bild,
+  begründeten Vorschlag und alle drei Auswahlmöglichkeiten zeigen; sie darf nicht
+  selbst fortfahren.
+- Im Unsicherheitsdialog einen anderen als den vorgeschlagenen Modus wählen. Das
+  ursprüngliche Foto muss ohne neue Aufnahme und ohne zweiten Client-Upload in
+  dieser Pipeline verarbeitet werden.
 - Auf dem Startbildschirm müssen **Entdecken**, **Aufgabe lösen**, **Lesen &
   Verstehen** und **Frage stellen** als vier eigenständige Aktionen sichtbar sein.
 - Im Modus **Entdecken** eine Pflanze, Schale Nüsse oder Statue fotografieren.
@@ -165,6 +176,9 @@ Dokumente für Testaufnahmen verwenden.
 - Kamera- und Mikrofonberechtigung ablehnen.
 - Ungültigen Client-Token, tägliches Limit und abgelaufene Sitzung prüfen.
 - Während der Verarbeitung mehrfach tippen; es darf nur eine Anfrage entstehen.
+- Nach einer automatischen Aufnahme das Backend zwischen Klassifikation und
+  Auswahl neu starten; die App muss die abgelaufene flüchtige Sitzung verständlich
+  melden und eine neue Aufnahme ermöglichen.
 
 ## MVP-Zielwerte
 

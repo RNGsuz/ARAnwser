@@ -1,4 +1,4 @@
-import type { AssistantMode, DocumentAnswer } from './types';
+import type { AssistantMode, DocumentAnswer, VisualMode, VisualModeClassification } from './types';
 
 function normalizeBaseUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -36,9 +36,33 @@ async function readResponse<T>(response: Response): Promise<T> {
     audio_required: 'Es wurde keine Sprachaufnahme übertragen.',
     speech_not_recognized: 'Die Sprache wurde nicht sicher erkannt. Bitte sprich die Frage erneut.',
     invalid_question: 'Die Frage war leer oder ungültig.',
+    invalid_classified_answer: 'Der erkannte Modus konnte nicht gestartet werden.',
   };
   const serverDetail = typeof body.error === 'string' && body.error.length <= 500 ? body.error : null;
   throw new Error(messages[body.error] ?? serverDetail ?? `Anfrage fehlgeschlagen (${response.status}).`);
+}
+
+export async function classifyImage(imageUri: string, sessionId: string): Promise<VisualModeClassification> {
+  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
+  const form = new FormData();
+  form.append('image', { uri: imageUri, name: 'automatic.jpg', type: 'image/jpeg' } as unknown as Blob);
+  form.append('sessionId', sessionId);
+  form.append('locale', 'de-DE');
+  const response = await request(`${baseUrl}/v1/classifications`, { method: 'POST', headers: headers(), body: form }, answerTimeoutMs);
+  return readResponse(response);
+}
+
+export async function createClassifiedQuery(
+  sessionId: string,
+  intent: VisualMode,
+  question: string,
+  includeSteps = true,
+): Promise<DocumentAnswer> {
+  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
+  const response = await request(`${baseUrl}/v1/classifications/${encodeURIComponent(sessionId)}/answer`, {
+    method: 'POST', headers: headers(true), body: JSON.stringify({ intent, question, includeSteps, locale: 'de-DE' }),
+  }, answerTimeoutMs);
+  return readResponse(response);
 }
 
 export async function transcribeAudio(audioUri: string): Promise<string> {
