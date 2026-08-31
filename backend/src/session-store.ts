@@ -38,6 +38,8 @@ export class SessionStore {
       ...(session.previousAnswer ? { previousAnswer: session.previousAnswer } : {}),
       ...(session.includeSteps !== undefined ? { includeSteps: session.includeSteps } : {}),
       ...(session.intent ? { intent: session.intent } : {}),
+      ...(session.isFollowUp !== undefined ? { isFollowUp: session.isFollowUp } : {}),
+      ...(session.imageResent !== undefined ? { imageResent: session.imageResent } : {}),
       question: session.question,
       locale: session.locale,
     };

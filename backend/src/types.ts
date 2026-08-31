@@ -94,6 +94,8 @@ export interface QueryInput {
   previousAnswer?: string;
   includeSteps?: boolean;
   intent?: "solve" | "discover" | "read" | "question";
+  isFollowUp?: boolean;
+  imageResent?: boolean;
 }
 
 export interface VisionService {

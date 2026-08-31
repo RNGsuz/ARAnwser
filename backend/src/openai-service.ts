@@ -3,6 +3,7 @@ import { answerSchema, glassesExerciseSchema, recognizedItemSchema, type Answer,
 import type { Config } from "./config.js";
 import { selectPipelinePolicy } from "./pipeline-policy.js";
 import { validateAnswerWithTools } from "./answer-validation.js";
+import { buildRequestMetrics, type RequestMetrics } from "./request-metrics.js";
 
 export const outputJsonSchema = {
   type: "object",
@@ -295,9 +296,11 @@ function instructionsForInput(input: QueryInput, intent: AnswerIntent, taskKind:
 
 export class OpenAIVisionService implements VisionService {
   private readonly client: OpenAI;
+  private readonly reportMetrics: (metrics: RequestMetrics) => void;
 
-  constructor(private readonly config: Config) {
+  constructor(private readonly config: Config, reportMetrics?: (metrics: RequestMetrics) => void) {
     this.client = new OpenAI({ apiKey: config.OPENAI_API_KEY });
+    this.reportMetrics = reportMetrics || (config.REQUEST_METRICS === "true" ? (metrics) => console.info(JSON.stringify(metrics)) : () => undefined);
   }
 
   async transcribe(audio: Buffer, filename: string, mimeType: string): Promise<string> {
@@ -310,6 +313,7 @@ export class OpenAIVisionService implements VisionService {
   }
 
   async answer(input: QueryInput): Promise<Answer> {
+    const startedAt = performance.now();
     const policy = selectPipelinePolicy(input, {
       defaultModel: this.config.OPENAI_VISION_MODEL,
       fastModel: this.config.OPENAI_FAST_MODEL,
@@ -333,9 +337,12 @@ export class OpenAIVisionService implements VisionService {
         detail: policy.imageDetail,
       });
     }
-    const response = await this.client.responses.create({
+    let response: OpenAI.Responses.Response | undefined;
+    try {
+      response = await this.client.responses.create({
       model: policy.model,
       store: false,
+      prompt_cache_key: `ar-answer:${policy.intent}:${policy.taskKind}:v1`,
       reasoning: { effort: policy.reasoningEffort },
       instructions: instructionsForInput(input, intent, policy.taskKind, policy.allowedTools.includes("web_search")),
       input: [{
@@ -352,12 +359,22 @@ export class OpenAIVisionService implements VisionService {
         },
       },
       max_output_tokens: policy.maxOutputTokens,
-    });
+      });
 
-    if (response.status === "incomplete") throw new Error("ai_response_incomplete");
-    try {
-      return validateAnswerWithTools(parseAnswerPayload(JSON.parse(response.output_text), intent), input, policy.allowedTools);
+      if (response.status === "incomplete") throw new Error("ai_response_incomplete");
+      const answer = validateAnswerWithTools(parseAnswerPayload(JSON.parse(response.output_text), intent), input, policy.allowedTools);
+      const localTools = policy.allowedTools.filter((tool) =>
+        (tool === "calculator" && answer.glassesExercises.length > 0)
+        || (tool === "code_verifier" && answer.glassesCodeUnits.length > 0)
+        || (tool === "ocr" && Boolean(input.ocrText)),
+      );
+      this.reportMetrics(buildRequestMetrics({ policy, response, imageIncluded: hasImage, imageResent: input.imageResent === true, localToolsUsed: localTools, latencyMs: performance.now() - startedAt, success: true }));
+      return answer;
     } catch (cause) {
+      const failure = cause instanceof Error ? cause.message : "unknown";
+      this.reportMetrics(buildRequestMetrics({ policy, response, imageIncluded: hasImage, imageResent: input.imageResent === true, latencyMs: performance.now() - startedAt, success: false, failureCode: failure }));
+      if (failure === "ai_response_incomplete") throw cause;
+      if (!response) throw cause;
       throw new Error("ai_response_invalid", { cause });
     }
   }

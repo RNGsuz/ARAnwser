@@ -12,6 +12,7 @@ const schema = z.object({
   MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
   MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
   DAILY_QUERY_LIMIT: z.coerce.number().int().positive().default(100),
+  REQUEST_METRICS: z.enum(["true", "false"]).optional(),
 });
 
 export type Config = z.infer<typeof schema>;

@@ -195,6 +195,8 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       question: parsed.data.question,
       locale: parsed.data.locale,
       includeSteps: parsed.data.includeSteps,
+      isFollowUp: true,
+      imageResent: resendImage,
     };
     const answer = await vision.answer(input);
     sessions.set(id, { ...previous, question: input.question, locale: input.locale, includeSteps: input.includeSteps, previousQuestion: input.question, previousAnswer: answerContext(answer) });

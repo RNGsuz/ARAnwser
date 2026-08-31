@@ -59,6 +59,13 @@ Informationen verlangt, beispielsweise mit „heute“, „aktuell“, „Preis�
 Responses-Anfrage kein Webwerkzeug. Aktuelle Antworten sollen ihre knappen
 Quellen in `evidence` angeben; maximal zwei Webaufrufe sind pro Antwort erlaubt.
 
+Jede Pipeline verwendet einen stabilen, inhaltsfreien `prompt_cache_key`. Mit
+`REQUEST_METRICS=true` protokolliert das Backend ausschließlich Modus,
+Aufgabenart, Modell, angebotene und verwendete Werkzeuge, Bilddetail,
+Bildwiederverwendung, Token-/Cachewerte, Laufzeit und Fehlercode. Bilder, Fragen,
+OCR-Text und Antworten sind ausdrücklich nicht Teil dieser Metriken; standardmäßig
+ist die Ausgabe deaktiviert.
+
 ## Expo-Prototyp starten
 
 Handy und Entwicklungsrechner müssen im selben Netzwerk sein. Zuerst die
