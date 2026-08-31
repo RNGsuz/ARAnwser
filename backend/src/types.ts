@@ -58,6 +58,7 @@ export const readingInfoSchema = z.object({
 });
 
 export const answerSchema = z.object({
+  answerKind: z.enum(["discovery", "reading", "solution", "general"]),
   shortAnswer: z.string().min(1).max(240),
   glassesSummary: z.object({
     format: z.enum(["text", "output"]),

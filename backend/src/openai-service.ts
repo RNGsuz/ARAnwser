@@ -5,8 +5,9 @@ import type { Config } from "./config.js";
 export const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "discoveryInfo", "readingInfo", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
+  required: ["answerKind", "shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "discoveryInfo", "readingInfo", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
   properties: {
+    answerKind: { type: "string", enum: ["discovery", "reading", "solution", "general"] },
     shortAnswer: { type: "string", minLength: 1, maxLength: 240 },
     glassesSummary: {
       type: "object",
@@ -177,11 +178,55 @@ export const outputJsonSchema = {
   },
 } as const;
 
-export function parseAnswerPayload(payload: unknown): Answer {
-  const parsed = answerSchema.safeParse(payload);
-  if (parsed.success) return parsed.data;
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw parsed.error;
+type AnswerIntent = NonNullable<QueryInput["intent"]>;
+
+const commonOutputFields = ["answerKind", "shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"] as const;
+
+export function outputJsonSchemaForIntent(intent: AnswerIntent = "solve") {
+  const answerKind = intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general";
+  const specific = intent === "discover"
+    ? ["discoveryInfo"]
+    : intent === "read"
+      ? ["readingInfo"]
+      : intent === "solve"
+        ? ["glassesExercises", "recognizedItems", "glassesCodeUnits", "solution"]
+        : ["solution"];
+  const required = [...commonOutputFields, ...specific];
+  const allProperties: Record<string, unknown> = outputJsonSchema.properties;
+  const properties: Record<string, unknown> = Object.fromEntries(required.map((key) => [key, allProperties[key]]));
+  properties.answerKind = { type: "string", const: answerKind };
+  if (intent === "discover") properties.discoveryInfo = outputJsonSchema.properties.discoveryInfo.anyOf[0];
+  if (intent === "read") properties.readingInfo = outputJsonSchema.properties.readingInfo.anyOf[0];
+  return {
+    type: "object",
+    additionalProperties: false,
+    required,
+    properties,
+  } as const;
+}
+
+function normalizedPayload(payload: unknown, intent: AnswerIntent): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
   const source = payload as Record<string, unknown>;
+  const answerKind = intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general";
+  return {
+    ...source,
+    answerKind: source.answerKind ?? answerKind,
+    glassesExercises: source.glassesExercises ?? [],
+    recognizedItems: source.recognizedItems ?? [],
+    glassesCodeUnits: source.glassesCodeUnits ?? [],
+    discoveryInfo: source.discoveryInfo ?? null,
+    readingInfo: source.readingInfo ?? null,
+    solution: source.solution ?? { kind: "direct", title: "Direkte Antwort", steps: [] },
+  };
+}
+
+export function parseAnswerPayload(payload: unknown, intent: AnswerIntent = "solve"): Answer {
+  const normalized = normalizedPayload(payload, intent);
+  const parsed = answerSchema.safeParse(normalized);
+  if (parsed.success) return parsed.data;
+  if (!normalized || typeof normalized !== "object" || Array.isArray(normalized)) throw parsed.error;
+  const source = normalized as Record<string, unknown>;
   const glassesExercises = Array.isArray(source.glassesExercises)
     ? source.glassesExercises.flatMap((item) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return [];
@@ -221,6 +266,7 @@ export class OpenAIVisionService implements VisionService {
   }
 
   async answer(input: QueryInput): Promise<Answer> {
+    const intent = input.intent ?? (input.image ? "solve" : "question");
     const hasImage = Boolean(input.image && input.imageMimeType);
     const isDiscovery = input.intent === "discover";
     const isReading = input.intent === "read";
@@ -245,6 +291,7 @@ export class OpenAIVisionService implements VisionService {
       store: false,
       reasoning: { effort: "low" },
       instructions: [
+        `Set answerKind exactly to ${intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general"}.`,
         isDiscovery
           ? "The user deliberately selected object discovery. Identify and explain the main physical object, animal, plant, artwork, food, or scene in the photo. Do not treat visible writing as a worksheet and do not solve tasks unless the current question explicitly asks for it. Be honest about visual ambiguity. If the main subject cannot be identified responsibly, set needsRetake=true and give a concrete retake instruction."
           : isReading
@@ -286,7 +333,7 @@ export class OpenAIVisionService implements VisionService {
           type: "json_schema",
           name: "document_answer",
           strict: true,
-          schema: outputJsonSchema,
+          schema: outputJsonSchemaForIntent(intent),
         },
       },
       max_output_tokens: 5000,
@@ -294,7 +341,7 @@ export class OpenAIVisionService implements VisionService {
 
     if (response.status === "incomplete") throw new Error("ai_response_incomplete");
     try {
-      return parseAnswerPayload(JSON.parse(response.output_text));
+      return parseAnswerPayload(JSON.parse(response.output_text), intent);
     } catch (cause) {
       throw new Error("ai_response_invalid", { cause });
     }

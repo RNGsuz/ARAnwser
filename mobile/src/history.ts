@@ -12,6 +12,7 @@ export async function saveAnswer(answer: DocumentAnswer): Promise<void> {
   const current = await loadHistory();
   const entry: HistoryEntry = {
     question: answer.question,
+    answerKind: answer.answerKind,
     shortAnswer: answer.shortAnswer,
     glassesSummary: answer.glassesSummary,
     glassesExercises: answer.glassesExercises,

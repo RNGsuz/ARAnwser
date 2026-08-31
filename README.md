@@ -12,6 +12,10 @@ flüchtigen Sitzungskontext.
   in Expo Go.
 - `backend/`: Fastify-API. Bilder bleiben nur kurz im RAM und werden nach Ablauf
   der Sitzung oder per DELETE entfernt. OpenAI-Aufrufe verwenden `store: false`.
+- Das Backend fordert je Modus ein eigenes kleines Structured-Output-Schema an
+  und normalisiert die Ergebnisse anschließend für ältere Clients und
+  Verlaufseinträge. Dadurch müssen fachfremde leere Felder nicht bei jeder
+  Modellanfrage erzeugt werden.
 - Der API-Vertrag ist hardwareunabhängig angelegt. Kamera, Eingabe, Anzeige und
   Audio werden vor einer Android-XR- oder Rokid-Anbindung in eigene Adapter
   ausgelagert.

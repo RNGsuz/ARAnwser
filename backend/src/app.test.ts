@@ -16,6 +16,7 @@ const config: Config = {
 };
 
 const answer = {
+  answerKind: "solution" as const,
   shortAnswer: "42",
   glassesSummary: { format: "output" as const, lines: ["a) 42"] },
   glassesExercises: [],

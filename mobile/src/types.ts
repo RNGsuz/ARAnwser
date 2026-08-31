@@ -72,6 +72,7 @@ export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
   question: string;
+  answerKind?: 'discovery' | 'reading' | 'solution' | 'general';
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   glassesExercises?: GlassesExercise[];
@@ -90,6 +91,7 @@ export interface DocumentAnswer {
 
 export interface HistoryEntry {
   question: string;
+  answerKind?: 'discovery' | 'reading' | 'solution' | 'general';
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   glassesExercises?: GlassesExercise[];
