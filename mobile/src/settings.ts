@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type CodeScrollMode = 'line' | 'smoothSnap' | 'continuous';
+
 export interface AppSettings {
   showChoiceAfterPhoto: boolean;
   voiceQuestionByDefault: boolean;
   speakAnswers: boolean;
   explainSteps: boolean;
   saveHistory: boolean;
+  codeScrollMode: CodeScrollMode;
 }
 
 export const defaultSettings: AppSettings = {
@@ -14,6 +17,7 @@ export const defaultSettings: AppSettings = {
   speakAnswers: true,
   explainSteps: true,
   saveHistory: true,
+  codeScrollMode: 'smoothSnap',
 };
 
 const key = 'ar-answer-settings-v1';

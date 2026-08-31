@@ -71,8 +71,9 @@ Antworten können im Tab **Verlauf** vollständig geöffnet werden; ältere
 Textantworten bleiben kompatibel.
 
 Das simulierte Brillendisplay zeigt Antworten als Kartenfolge. Die Kurzantwort
-steht immer zuerst. Tippen beziehungsweise Wischen öffnet anschließend Code,
-Formeln und Begründung; langes Drücken springt zur Übersicht zurück. Code wird auf
+steht immer zuerst. Gewischt wird ausschließlich in vier Richtungen: nach links
+zur nächsten Karte, nach rechts zur vorherigen sowie hoch und runter innerhalb
+einer Codeeinheit. Tippen und langes Drücken haben im Display keine Funktion. Code wird auf
 fünf Displayzeilen pro Karte umgebrochen und behält seine ursprünglichen
 Zeilennummern. Dadurch funktionieren Folgefragen wie „Erkläre Zeile 8“ mit dem
 vollständigen flüchtigen Codekontext.
@@ -88,10 +89,17 @@ ist, werden keine künstlichen Schritte erzeugt.
 Bei Implementierungsaufgaben bleibt jede Methode, Klasse oder Testeinheit zusammen:
 Titel, vollständiger Code und Erklärung erscheinen als eine semantische Einheit.
 Der Code wird nicht nochmals in der Vertiefung dupliziert. Im simulierten
-Brillendisplay lässt sich eine solche Einheit vertikal scrollen; der horizontale
-Kartenwechsel führt zur nächsten beziehungsweise vorherigen Einheit. Ältere
+Brillendisplay lässt sich eine solche Einheit über ein Fünf-Zeilen-Fenster vertikal
+scrollen; der horizontale Kartenwechsel führt zur nächsten beziehungsweise
+vorherigen Einheit. Ältere
 Antworten mit einem einzelnen Codeblock verwenden weiterhin die paginierten
 Codekarten.
+
+Unter **Einstellungen → Brillendisplay → Code-Scrolling** stehen drei lokal
+gespeicherte Varianten zur Wahl: **Zeilenweise** springt direkt um vollständige
+Zeilen, **Smooth Snap** folgt der Wischbewegung und rastet animiert auf einer
+Zeile ein, **Fließend** bewegt den Code pixelgenau und berücksichtigt die
+Wischgeschwindigkeit für ein kurzes Auslaufen.
 
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**

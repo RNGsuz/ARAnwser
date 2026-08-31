@@ -75,13 +75,13 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   if (answer.evidence[0]) detailCards.push({ type: 'note', title: 'WARUM?', text: answer.evidence[0] });
   const firstDetail = detailCards[0];
   const nextHint = firstDetail?.type === 'code'
-    ? 'Tippen für Code'
+    ? 'Nach links für Code'
     : firstDetail?.type === 'math'
-      ? 'Tippen für Formel'
+      ? 'Nach links für Formel'
       : firstDetail?.type === 'step'
-        ? 'Tippen für Lösungsweg'
+        ? 'Nach links für Lösungsweg'
       : firstDetail
-        ? 'Tippen für Details'
+        ? 'Nach links für Details'
         : null;
   const summary = answer.glassesSummary ?? { format: 'text' as const, lines: [answer.shortAnswer] };
   const summaryPages = chunks(summary.lines, summaryLinesPerCard);
@@ -90,7 +90,7 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
     title: summaryPages.length > 1 ? `KURZANTWORT ${index + 1}/${summaryPages.length}` : 'KURZANTWORT',
     format: summary.format,
     lines,
-    nextHint: index === summaryPages.length - 1 ? nextHint : 'Tippen für weitere Ergebnisse',
+    nextHint: index === summaryPages.length - 1 ? nextHint : 'Nach links für weitere Ergebnisse',
   }));
   return [...summaryCards, ...detailCards];
 }

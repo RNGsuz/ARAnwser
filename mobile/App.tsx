@@ -3,15 +3,15 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Speech from 'expo-speech';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable,
-  SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  Animated, Easing, PanResponder, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
 import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, transcribeAudio } from './src/api';
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
-import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
+import { defaultSettings, loadSettings, saveSettings, type AppSettings, type CodeScrollMode } from './src/settings';
 import type { AnswerBlock, AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep } from './src/types';
 import { AnswerContent } from './src/AnswerContent';
 import { buildGlassesCards, wrapCode, type GlassesCard } from './src/glasses';
@@ -49,6 +49,8 @@ export default function App() {
   const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<HistoryEntry | null>(null);
   const [activeTab, setActiveTab] = useState<'assistant' | 'history' | 'settings'>('assistant');
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [pageScrollEnabled, setPageScrollEnabled] = useState(true);
+  const handleCodeInteractionChange = useCallback((active: boolean) => setPageScrollEnabled(!active), []);
 
   useEffect(() => {
     loadHistory().then(setHistory).catch(() => undefined);
@@ -293,7 +295,7 @@ export default function App() {
       <StatusBar style="light" />
       {activeTab === 'assistant' ? (
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" scrollEnabled={pageScrollEnabled}>
             <View style={styles.header}>
               <View>
                 <Text style={styles.eyebrow}>{state === 'idle' ? 'DEIN VISUELLER ASSISTENT' : labels[state].toUpperCase()}</Text>
@@ -367,7 +369,7 @@ export default function App() {
             {state === 'answer' && answer ? (
               answer.needsRetake ? <View style={styles.retakePanel}><Text style={styles.retakeTitle}>Aufnahme nicht sicher lesbar</Text><Text style={styles.answerText}>{answer.retakeHint || answer.spokenAnswer}</Text><Text style={styles.retakePrivacy}>Dieses Foto wird nicht im Verlauf gespeichert.</Text><Pressable style={[styles.primaryButton, styles.retakeButton]} onPress={openCamera}><Text style={styles.primaryButtonText}>Foto erneut aufnehmen</Text></Pressable></View> : (
                 <View style={styles.answerWorkspace}>
-                  <GlassesDisplay state={state} answer={answer} error={null} />
+                  <GlassesDisplay state={state} answer={answer} error={null} codeScrollMode={settings.codeScrollMode} onCodeInteractionChange={handleCodeInteractionChange} />
                   <GuidedSolutionView solution={answer.solution} />
                   <DetailedAnswerView answer={answer} showMeta />
                   <View style={styles.followUpCard}><Text style={styles.sectionLabel}>FOLGEFRAGE</Text><View style={styles.followUpRow}><TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Was möchtest du noch wissen?" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" /><Pressable style={styles.voiceFollowUpButton} onPress={() => startVoiceFollowUp()} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable><Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable></View></View>
@@ -445,6 +447,20 @@ function SettingsScreen({ settings, updateSetting }: {
         <SettingRow title="Lösungsweg erklären" description="Fordert bei direkten Aufgaben zusätzlich eine kurze Erklärung an." value={settings.explainSteps} onValueChange={(value) => updateSetting('explainSteps', value)} />
         <SettingRow title="Verlauf speichern" description="Speichert Frage und Antwort lokal, niemals das Foto." value={settings.saveHistory} onValueChange={(value) => updateSetting('saveHistory', value)} />
       </View>
+
+      <View style={styles.settingsGroup}>
+        <Text style={styles.groupTitle}>Brillendisplay</Text>
+        <View style={styles.scrollModeSetting}>
+          <Text style={styles.settingTitle}>Code-Scrolling</Text>
+          <Text style={styles.settingDescription}>Bestimmt, wie vertikale Wischgesten durch Methodencode führen.</Text>
+          <View style={styles.segmentedControl}>
+            {([
+              ['line', 'Zeilenweise'], ['smoothSnap', 'Smooth Snap'], ['continuous', 'Fließend'],
+            ] as const).map(([value, label]) => <Pressable key={value} style={[styles.segmentButton, settings.codeScrollMode === value && styles.segmentButtonActive]} onPress={() => updateSetting('codeScrollMode', value)}><Text style={[styles.segmentText, settings.codeScrollMode === value && styles.segmentTextActive]}>{label}</Text></Pressable>)}
+          </View>
+          <Text style={styles.scrollModeDescription}>{settings.codeScrollMode === 'line' ? 'Springt nach jeder Geste auf vollständige Codezeilen.' : settings.codeScrollMode === 'smoothSnap' ? 'Folgt der Geste und gleitet anschließend auf vollständige Zeilen.' : 'Folgt der Geste pixelgenau und läuft mit kurzer Trägheit aus.'}</Text>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -504,53 +520,115 @@ function GuidedSolutionView({ solution }: { solution?: GuidedSolution }) {
   );
 }
 
-function GlassesDisplay({ state, answer, error }: { state: AssistantState; answer: DocumentAnswer | null; error: string | null }) {
+function GlassesDisplay({ state, answer, error, codeScrollMode, onCodeInteractionChange }: {
+  state: AssistantState;
+  answer: DocumentAnswer | null;
+  error: string | null;
+  codeScrollMode: CodeScrollMode;
+  onCodeInteractionChange: (active: boolean) => void;
+}) {
   const cards = useMemo(() => answer ? buildGlassesCards(answer) : [], [answer]);
   const [cardIndex, setCardIndex] = useState(0);
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const longPressed = useRef(false);
+  const [codePosition, setCodePosition] = useState(0);
+  const codePixelOffset = useRef(new Animated.Value(0)).current;
+  const gestureStartPixel = useRef(0);
 
   useEffect(() => setCardIndex(0), [answer?.queryId]);
+  useEffect(() => () => onCodeInteractionChange(false), [onCodeInteractionChange]);
 
   function previousCard() {
+    setCodePosition(0);
+    codePixelOffset.setValue(0);
     setCardIndex((current) => Math.max(0, current - 1));
   }
 
   function nextCard() {
+    setCodePosition(0);
+    codePixelOffset.setValue(0);
     setCardIndex((current) => Math.min(cards.length - 1, current + 1));
   }
 
   const card = cards[cardIndex];
+  const isScrollableCode = card?.type === 'step' && card.step.contentType === 'code';
+  const codeLineHeight = 20;
+  const codeLineCount = isScrollableCode ? wrapCode(card.step.content).length : 0;
+  const maxCodePixel = Math.max(0, codeLineCount - 5) * codeLineHeight;
+  function settleCodeScroll(targetPixel: number, animation: CodeScrollMode) {
+    const bounded = Math.max(0, Math.min(maxCodePixel, targetPixel));
+    setCodePosition(bounded / codeLineHeight);
+    if (animation === 'line') {
+      codePixelOffset.setValue(bounded);
+      return;
+    }
+    if (animation === 'smoothSnap') {
+      Animated.spring(codePixelOffset, {
+        toValue: bounded, useNativeDriver: true, damping: 18, stiffness: 190, mass: 0.75, overshootClamping: true,
+      }).start();
+      return;
+    }
+    Animated.timing(codePixelOffset, {
+      toValue: bounded, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    }).start();
+  }
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      onCodeInteractionChange(true);
+      codePixelOffset.stopAnimation((value) => { gestureStartPixel.current = value; });
+    },
+    onPanResponderMove: (_event, gesture) => {
+      if (!isScrollableCode || codeScrollMode === 'line' || Math.abs(gesture.dy) <= Math.abs(gesture.dx)) return;
+      codePixelOffset.setValue(Math.max(0, Math.min(maxCodePixel, gestureStartPixel.current - gesture.dy)));
+    },
+    onPanResponderRelease: (_event, gesture) => {
+      onCodeInteractionChange(false);
+      const horizontal = Math.abs(gesture.dx) > Math.abs(gesture.dy);
+      if (horizontal && Math.abs(gesture.dx) >= 24) {
+        codePixelOffset.setValue(gestureStartPixel.current);
+        if (gesture.dx < 0) nextCard();
+        else previousCard();
+        return;
+      }
+      if (!horizontal && Math.abs(gesture.dy) >= 18 && isScrollableCode) {
+        if (codeScrollMode === 'line') {
+          const distance = Math.max(1, Math.ceil(Math.abs(gesture.dy) / 34));
+          settleCodeScroll((codePosition + (gesture.dy < 0 ? distance : -distance)) * codeLineHeight, 'line');
+        } else if (codeScrollMode === 'smoothSnap') {
+          const projected = gestureStartPixel.current - gesture.dy - gesture.vy * 40;
+          settleCodeScroll(Math.round(projected / codeLineHeight) * codeLineHeight, 'smoothSnap');
+        } else {
+          settleCodeScroll(gestureStartPixel.current - gesture.dy - gesture.vy * 120, 'continuous');
+        }
+      } else if (isScrollableCode && codeScrollMode !== 'line') {
+        settleCodeScroll(gestureStartPixel.current, codeScrollMode);
+      }
+    },
+    onPanResponderTerminate: () => onCodeInteractionChange(false),
+    onPanResponderTerminationRequest: () => false,
+  });
   return (
     <View style={styles.glassesArea}>
-      <Pressable
+      <View
         style={styles.glasses}
-        onTouchStart={(event) => { touchStartX.current = event.nativeEvent.pageX; touchStartY.current = event.nativeEvent.pageY; longPressed.current = false; }}
-        onTouchEnd={(event) => {
-          if (longPressed.current) return;
-          const distanceX = event.nativeEvent.pageX - touchStartX.current;
-          const distanceY = event.nativeEvent.pageY - touchStartY.current;
-          if (Math.abs(distanceY) > 8 && Math.abs(distanceY) > Math.abs(distanceX)) return;
-          if (distanceX > 35) previousCard();
-          else nextCard();
-        }}
-        onLongPress={() => { longPressed.current = true; setCardIndex(0); }}
-        accessibilityLabel="Simuliertes Brillendisplay. Tippen für nächste Karte, nach rechts wischen für zurück, innerhalb von Code vertikal scrollen."
+        {...panResponder.panHandlers}
+        accessible
+        accessibilityLabel="Simuliertes Brillendisplay. Nach links oder rechts wischen wechselt die Karte. Nach oben oder unten wischen scrollt Methodencode."
       >
         <View style={styles.displayHeader}><Text style={styles.displayLabel}>BRILLENDISPLAY · {card?.title || 'STATUS'}</Text>{cards.length > 1 ? <Text style={styles.displayProgress}>{cardIndex + 1} / {cards.length}</Text> : null}</View>
-        {error ? <Text style={styles.displayAnswer}>{error}</Text> : answer && state === 'answer' && card ? <GlassesCardContent card={card} /> : <Text style={styles.displayAnswer}>{labels[state]}</Text>}
-      </Pressable>
-      {cards.length > 1 ? <View style={styles.displayNav}><Pressable onPress={previousCard} disabled={cardIndex === 0}><Text style={[styles.displayNavText, cardIndex === 0 && styles.displayNavDisabled]}>‹ Zurück</Text></Pressable><Text style={styles.displayNavHint}>Tippen oder wischen</Text><Pressable onPress={nextCard} disabled={cardIndex === cards.length - 1}><Text style={[styles.displayNavText, cardIndex === cards.length - 1 && styles.displayNavDisabled]}>Weiter ›</Text></Pressable></View> : null}
+        {error ? <Text style={styles.displayAnswer}>{error}</Text> : answer && state === 'answer' && card ? <GlassesCardContent card={card} codePosition={codePosition} codePixelOffset={codePixelOffset} codeScrollMode={codeScrollMode} /> : <Text style={styles.displayAnswer}>{labels[state]}</Text>}
+      </View>
+      {cards.length > 1 ? <Text style={styles.displayGestureHint}>← → Karten{isScrollableCode ? '   ·   ↑ ↓ Code' : ''}</Text> : null}
     </View>
   );
 }
 
-function GlassesCardContent({ card }: { card: GlassesCard }) {
+function GlassesCardContent({ card, codePosition, codePixelOffset, codeScrollMode }: { card: GlassesCard; codePosition: number; codePixelOffset: Animated.Value; codeScrollMode: CodeScrollMode }) {
   if (card.type === 'summary') return <View><View style={styles.displaySummaryLines}>{card.lines.map((line, index) => <Text key={`${index}-${line}`} style={card.format === 'output' ? styles.displayOutputLine : styles.displayAnswer}>{line}</Text>)}</View>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
   if (card.type === 'step' && card.step.contentType === 'code') {
     const lines = wrapCode(card.step.content);
-    return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><ScrollView style={styles.displayCodeScroll} nestedScrollEnabled showsVerticalScrollIndicator>{lines.map((line, index) => <View style={styles.displayCodeRow} key={`${line.sourceLine}-${index}`}><Text style={styles.displayLineNumber}>{line.continuation ? '↳' : String(line.sourceLine).padStart(2, '0')}</Text><Text style={styles.displayCodeText}>{line.text}</Text></View>)}</ScrollView><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
+    const firstLine = Math.floor(codePosition);
+    return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><View style={styles.displayCodeViewport}><Animated.View style={{ transform: [{ translateY: Animated.multiply(codePixelOffset, -1) }] }}>{lines.map((line, index) => <View style={styles.displayCodeRowFixed} key={`${line.sourceLine}-${index}`}><Text style={styles.displayLineNumber}>{line.continuation ? '↳' : String(line.sourceLine).padStart(2, '0')}</Text><Text style={styles.displayCodeText}>{line.text}</Text></View>)}</Animated.View></View><Text style={styles.displayScrollHint}>↑↓ {codeScrollMode === 'line' ? 'Zeilenweise' : codeScrollMode === 'smoothSnap' ? 'Smooth Snap' : 'Fließend'} · {firstLine + 1}–{Math.min(firstLine + 5, lines.length)} / {lines.length}</Text><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
   }
   if (card.type === 'step') return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><AnswerContent blocks={solutionStepBlocks(card.step)} fallback={card.step.content} compact /><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
   if (card.type === 'math') return <AnswerContent blocks={[card.block]} fallback="" compact />;
@@ -607,6 +685,7 @@ const styles = StyleSheet.create({
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }, tabIcon: { color: '#718078', fontSize: 19 }, tabLabel: { color: '#718078', fontSize: 11, fontWeight: '700' }, tabActive: { color: '#70ff9b' },
   settingsContent: { padding: 20, paddingBottom: 42, gap: 8 }, settingsIntro: { color: '#93a399', fontSize: 15, lineHeight: 22, marginBottom: 18 },
   settingsGroup: { backgroundColor: '#111d16', borderRadius: 22, paddingHorizontal: 16, marginBottom: 14 }, groupTitle: { color: '#70ff9b', fontSize: 12, letterSpacing: 1.1, fontWeight: '800', paddingTop: 17, paddingBottom: 5 },
+  scrollModeSetting: { borderTopWidth: 1, borderTopColor: '#25342b', paddingVertical: 15, gap: 8 }, segmentedControl: { flexDirection: 'row', gap: 5, padding: 4, borderRadius: 14, backgroundColor: '#09120d' }, segmentButton: { flex: 1, minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 }, segmentButtonActive: { backgroundColor: '#55ed80' }, segmentText: { color: '#91a097', fontSize: 11, fontWeight: '800', textAlign: 'center' }, segmentTextActive: { color: '#07100c' }, scrollModeDescription: { color: '#84958b', fontSize: 11, lineHeight: 16 },
   settingRow: { minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 14, borderTopWidth: 1, borderTopColor: '#25342b' }, settingDisabled: { opacity: 0.42 }, settingCopy: { flex: 1, paddingVertical: 13 }, settingTitle: { color: '#effaf2', fontSize: 16, fontWeight: '700' }, settingDescription: { color: '#8d9d93', fontSize: 12, lineHeight: 17, marginTop: 4 },
   audioOutputSetting: { minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#25342b' }, previewButton: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#203127', alignItems: 'center', justifyContent: 'center' }, previewButtonText: { color: '#dff5e5', fontSize: 12, fontWeight: '700' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, eyebrow: { color: '#70ff9b', fontSize: 11, letterSpacing: 1.5, fontWeight: '700' },
@@ -618,7 +697,7 @@ const styles = StyleSheet.create({
   glassesArea: { gap: 9 }, glasses: { minHeight: 220, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 20, gap: 18, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
   displayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, displayLabel: { color: '#3e9b5c', fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, displayProgress: { color: '#70ff9b', fontSize: 10, fontWeight: '900' }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displaySummaryLines: { gap: 4 }, displayOutputLine: { color: '#70ff9b', fontFamily: 'monospace', fontSize: 19, lineHeight: 24, fontWeight: '700' },
-  displayStep: { gap: 7 }, displayStepTitle: { color: '#ffda77', fontSize: 15, lineHeight: 19, fontWeight: '900' }, displayStepExplanation: { color: '#9fc9aa', fontSize: 12, lineHeight: 16 }, displayCodeScroll: { maxHeight: 112 },
+  displayStep: { gap: 6 }, displayStepTitle: { color: '#ffda77', fontSize: 15, lineHeight: 19, fontWeight: '900' }, displayStepExplanation: { color: '#9fc9aa', fontSize: 12, lineHeight: 16 }, displayCodeViewport: { height: 100, overflow: 'hidden' }, displayCodeRowFixed: { height: 20, flexDirection: 'row', gap: 7 }, displayScrollHint: { color: '#5d8068', fontSize: 10, textAlign: 'right' }, displayGestureHint: { color: '#698074', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   displayCode: { gap: 3 }, displayCodeRow: { flexDirection: 'row', gap: 7 }, displayLineNumber: { width: 20, color: '#438f5a', fontFamily: 'monospace', fontSize: 11, lineHeight: 17, textAlign: 'right' }, displayCodeText: { flex: 1, color: '#aaffbf', fontFamily: 'monospace', fontSize: 11, lineHeight: 17 }, displayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }, displayNavText: { color: '#70ff9b', fontSize: 12, fontWeight: '800', padding: 7 }, displayNavDisabled: { color: '#35463b' }, displayNavHint: { color: '#5e7065', fontSize: 10 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },

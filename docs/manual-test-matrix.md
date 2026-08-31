@@ -37,6 +37,10 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
   nicht gesammelt vor den späteren Bodies erscheinen.
 - Methodencode im Brillendisplay vertikal scrollen und danach horizontal zur
   nächsten Methode wechseln. Eine vertikale Geste darf keine Karte weiterschalten.
+- In den Einstellungen nacheinander **Zeilenweise**, **Smooth Snap** und
+  **Fließend** wählen: direktes Springen, animiertes Einrasten und pixelgenaues
+  Scrollen mit kurzem Auslaufen müssen klar unterscheidbar sein.
+- App neu laden und prüfen, dass die gewählte Scrollmethode erhalten bleibt.
 - Code aus den Methodeneinheiten darf weder in späteren Brillenkarten noch in der
   Smartphone-Vertiefung ein zweites Mal vollständig erscheinen.
 - Jeder Lernschritt muss auf der Brille eine eigene Karte belegen. Direkte
@@ -46,8 +50,9 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 - Lernschritte müssen nach dem Speichern im Verlauf erhalten bleiben.
 - Kompakte Code- beziehungsweise Formelkarte im simulierten Brillendisplay prüfen.
 - Bei einer längeren Codeantwort kontrollieren: Kurzantwort zuerst, Hinweis
-  „Tippen für Code“, höchstens fünf Codezeilen je Karte und korrekter Fortschritt.
-- Tippen, links/rechts wischen, Navigationstasten und langes Drücken testen.
+  „Nach links für Code“, höchstens fünf Codezeilen je Ansicht und korrekter Fortschritt.
+- Links/rechts muss zwischen Karten wechseln; hoch/runter muss ausschließlich den
+  Methodencode bewegen. Tippen und langes Drücken dürfen nichts auslösen.
 - Lange Codezeilen dürfen keinen horizontalen Lauftext erzeugen; Fortsetzungen
   müssen mit `↳` und stabiler ursprünglicher Zeilennummer erkennbar sein.
 - „Erkläre Zeile 8“ als Folgefrage stellen und den Bezug zum vollständigen Code
