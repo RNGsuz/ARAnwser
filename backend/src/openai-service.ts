@@ -8,9 +8,17 @@ import { buildRequestMetrics, type RequestMetrics } from "./request-metrics.js";
 export const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["answerKind", "shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "discoveryInfo", "readingInfo", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
+  required: ["answerKind", "modeSuggestion", "shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "discoveryInfo", "readingInfo", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
   properties: {
     answerKind: { type: "string", enum: ["discovery", "reading", "solution", "general"] },
+    modeSuggestion: {
+      anyOf: [
+        { type: "object", additionalProperties: false, required: ["suggestedMode", "reason", "confidence"], properties: {
+          suggestedMode: { type: "string", enum: ["discover", "read", "solve", "question"] }, reason: { type: "string", minLength: 1, maxLength: 180 }, confidence: { type: "number", minimum: 0.9, maximum: 1 },
+        } },
+        { type: "null" },
+      ],
+    },
     shortAnswer: { type: "string", minLength: 1, maxLength: 240 },
     glassesSummary: {
       type: "object",
@@ -183,7 +191,7 @@ export const outputJsonSchema = {
 
 type AnswerIntent = NonNullable<QueryInput["intent"]>;
 
-const commonOutputFields = ["answerKind", "shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"] as const;
+const commonOutputFields = ["answerKind", "modeSuggestion", "shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"] as const;
 
 export function outputJsonSchemaForIntent(intent: AnswerIntent = "solve", taskKind: "direct" | "math" | "code" = "direct") {
   const answerKind = intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general";
@@ -219,6 +227,7 @@ function normalizedPayload(payload: unknown, intent: AnswerIntent): unknown {
   return {
     ...source,
     answerKind: source.answerKind ?? answerKind,
+    modeSuggestion: source.modeSuggestion ?? null,
     glassesExercises: source.glassesExercises ?? [],
     recognizedItems: source.recognizedItems ?? [],
     glassesCodeUnits: source.glassesCodeUnits ?? [],
@@ -264,6 +273,7 @@ function instructionsForInput(input: QueryInput, intent: AnswerIntent, taskKind:
     "glassesSummary is the primary small-display result. Use complete short lines, readable Unicode, and no raw LaTeX commands, dollar delimiters, or begin/end environments.",
     "Build blocks in reading order: text for prose, code for source code, and math for LaTeX. Do not duplicate primary display content in blocks.",
     webSearchAllowed ? "Web search is available because the question explicitly needs current information. Use it only for that current fact and include concise source names or URLs in evidence." : "Do not claim to have checked current web information.",
+    input.image ? "modeSuggestion is normally null. Set it only when the photo very clearly belongs to another user-facing mode with confidence at least 0.9; give one short reason. Never change modes yourself. Suggest solve for a clear exercise, read for a document/slide without a requested solution, or discover for a physical object/scene." : "Set modeSuggestion=null because there is no photo to reclassify.",
   ];
   if (intent === "discover") return [...common,
     "The user selected object discovery. Identify and explain the main physical object, animal, plant, artwork, food, or scene. Do not treat writing as a worksheet or solve tasks unless explicitly asked. Be honest about ambiguity and request a better photo when responsible identification is impossible.",

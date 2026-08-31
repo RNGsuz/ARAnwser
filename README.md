@@ -172,6 +172,11 @@ Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträg
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**
 entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.
 
+Wenn ein Foto mit hoher Sicherheit besser zu einem anderen Eingabemodus passt,
+zeigt die App lediglich einen Wechselvorschlag. Sie wechselt nie automatisch;
+erst **Foto dort auswerten** verarbeitet dasselbe flüchtige Bild im empfohlenen
+Modus neu. Der Vorschlag kann mit **Hier bleiben** verworfen werden.
+
 ## API
 
 - `POST /v1/queries`: multipart mit `image`, optional `audio`, `question`,

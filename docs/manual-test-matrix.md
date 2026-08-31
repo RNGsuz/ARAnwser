@@ -26,6 +26,13 @@ Dokumente für Testaufnahmen verwenden.
   Transkriptprüfung und Korrektur müssen weiterhin funktionieren.
 - Foto wiederholen und Folgefrage senden; der ursprünglich gewählte Modus muss
   jeweils erhalten bleiben.
+- Eine klare Aufgabe absichtlich über **Entdecken** fotografieren. Nur bei einer
+  sehr sicheren Erkennung darf die App **Aufgabe lösen** vorschlagen; sie darf
+  den Modus niemals selbst wechseln. **Hier bleiben** muss die Empfehlung
+  schließen. **Foto dort auswerten** muss erst nach dem Tippen dasselbe flüchtige
+  Foto im vorgeschlagenen Modus neu auswerten.
+- Ein mehrdeutiges Foto und ein korrekt gewähltes Motiv testen. In beiden Fällen
+  darf keine spekulative Modusempfehlung erscheinen.
 - Nach einer Bildantwort „Warum ist das interessant?“ fragen; das Backend darf das
   Bild nicht erneut an die Modellpipeline geben. Danach nach Farbe, Position oder
   einer Tabellenzeile fragen; hierfür muss der unveränderte flüchtige Bildpuffer

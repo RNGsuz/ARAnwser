@@ -77,7 +77,7 @@ describe("structured answer schema", () => {
 
   it("offers only mode-specific fields to structured outputs", () => {
     expect(Object.keys(outputJsonSchemaForIntent("discover").properties)).toEqual([
-      "answerKind", "shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks", "discoveryInfo",
+      "answerKind", "modeSuggestion", "shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks", "discoveryInfo",
     ]);
     expect(Object.keys(outputJsonSchemaForIntent("read").properties)).not.toContain("glassesCodeUnits");
     expect(Object.keys(outputJsonSchemaForIntent("question").properties)).not.toContain("readingInfo");
@@ -92,6 +92,16 @@ describe("structured answer schema", () => {
     expect(result.glassesExercises).toEqual([]);
     expect(result.readingInfo).toBeNull();
     expect(result.solution.steps).toEqual([]);
+  });
+
+  it("accepts only high-confidence non-binding mode suggestions", () => {
+    const compact = {
+      answerKind: "discovery", shortAnswer: "Arbeitsblatt", glassesSummary: { format: "text", lines: ["Arbeitsblatt"] },
+      discoveryInfo: { name: "Arbeitsblatt", category: "Dokument", description: "Eine sichtbare Rechenaufgabe.", facts: ["Enthält eine Gleichung."], alternatives: [], safetyNote: null },
+      spokenAnswer: "Das Foto zeigt wahrscheinlich eine Aufgabe.", evidence: [], confidence: 0.95, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Arbeitsblatt" }],
+    };
+    expect(parseAnswerPayload({ ...compact, modeSuggestion: { suggestedMode: "solve", reason: "Eine klare Gleichung ist sichtbar.", confidence: 0.95 } }, "discover").modeSuggestion?.suggestedMode).toBe("solve");
+    expect(() => parseAnswerPayload({ ...compact, modeSuggestion: { suggestedMode: "solve", reason: "Vielleicht eine Aufgabe.", confidence: 0.7 } }, "discover")).toThrow();
   });
 
   it("aligns non-empty string constraints and drops only malformed math display items", () => {

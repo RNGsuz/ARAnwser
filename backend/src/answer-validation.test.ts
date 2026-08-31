@@ -5,7 +5,7 @@ import type { Answer } from "./types.js";
 
 function answer(overrides: Partial<Answer> = {}): Answer {
   return {
-    answerKind: "solution", shortAnswer: "ok", glassesSummary: { format: "text", lines: ["ok"] }, glassesExercises: [], recognizedItems: [], glassesCodeUnits: [], discoveryInfo: null, readingInfo: null,
+    answerKind: "solution", modeSuggestion: null, shortAnswer: "ok", glassesSummary: { format: "text", lines: ["ok"] }, glassesExercises: [], recognizedItems: [], glassesCodeUnits: [], discoveryInfo: null, readingInfo: null,
     solution: { kind: "direct", title: "Antwort", steps: [] }, spokenAnswer: "ok", evidence: [], confidence: 1, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "ok" }], ...overrides,
   };
 }

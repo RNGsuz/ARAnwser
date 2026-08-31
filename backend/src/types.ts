@@ -57,8 +57,15 @@ export const readingInfoSchema = z.object({
   visualFindings: z.array(z.string().min(1).max(200)).max(4),
 });
 
+export const modeSuggestionSchema = z.object({
+  suggestedMode: z.enum(["discover", "read", "solve", "question"]),
+  reason: z.string().min(1).max(180),
+  confidence: z.number().min(0.9).max(1),
+});
+
 export const answerSchema = z.object({
   answerKind: z.enum(["discovery", "reading", "solution", "general"]),
+  modeSuggestion: modeSuggestionSchema.nullable().default(null),
   shortAnswer: z.string().min(1).max(240),
   glassesSummary: z.object({
     format: z.enum(["text", "output"]),

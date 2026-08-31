@@ -68,11 +68,18 @@ export interface ReadingInfo {
 
 export type AssistantMode = 'discover' | 'read' | 'solve' | 'question';
 
+export interface ModeSuggestion {
+  suggestedMode: AssistantMode;
+  reason: string;
+  confidence: number;
+}
+
 export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
   question: string;
   answerKind?: 'discovery' | 'reading' | 'solution' | 'general';
+  modeSuggestion?: ModeSuggestion | null;
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   glassesExercises?: GlassesExercise[];
@@ -92,6 +99,7 @@ export interface DocumentAnswer {
 export interface HistoryEntry {
   question: string;
   answerKind?: 'discovery' | 'reading' | 'solution' | 'general';
+  modeSuggestion?: ModeSuggestion | null;
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   glassesExercises?: GlassesExercise[];

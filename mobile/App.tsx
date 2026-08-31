@@ -52,6 +52,7 @@ export default function App() {
   const [pageScrollEnabled, setPageScrollEnabled] = useState(true);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [assistantMode, setAssistantMode] = useState<AssistantMode | null>(null);
+  const [modeSuggestionDismissed, setModeSuggestionDismissed] = useState(false);
   const handleCodeInteractionChange = useCallback((active: boolean) => setPageScrollEnabled(!active), []);
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function App() {
     return () => { Speech.stop(); };
   }, []);
 
-  useEffect(() => setShowDiagnostics(false), [answer?.queryId]);
+  useEffect(() => { setShowDiagnostics(false); setModeSuggestionDismissed(false); }, [answer?.queryId]);
 
   async function openCamera(mode = assistantMode) {
     if (mode !== 'discover' && mode !== 'read' && mode !== 'solve') return;
@@ -273,6 +274,17 @@ export default function App() {
     }
   }
 
+  async function applyModeSuggestion(mode: AssistantMode) {
+    setModeSuggestionDismissed(true);
+    if (mode === 'question') {
+      await startGeneralQuestion();
+      return;
+    }
+    if (!photoUri) return;
+    setAssistantMode(mode);
+    await submitDirectly(photoUri, currentSession, true, mode);
+  }
+
   async function cancel() {
     Speech.stop();
     if (recorder.isRecording) await recorder.stop().catch(() => undefined);
@@ -386,6 +398,12 @@ export default function App() {
             {state === 'answer' && answer ? (
               answer.needsRetake ? <View style={styles.retakePanel}><Text style={styles.retakeTitle}>Aufnahme nicht sicher lesbar</Text><Text style={styles.answerText}>{answer.retakeHint || answer.spokenAnswer}</Text><Text style={styles.retakePrivacy}>Dieses Foto wird nicht im Verlauf gespeichert.</Text><Pressable style={[styles.primaryButton, styles.retakeButton]} onPress={() => openCamera()}><Text style={styles.primaryButtonText}>Foto erneut aufnehmen</Text></Pressable></View> : (
                 <View style={styles.answerWorkspace}>
+                  {answer.modeSuggestion && answer.modeSuggestion.confidence >= 0.9 && answer.modeSuggestion.suggestedMode !== assistantMode && !modeSuggestionDismissed ? <View style={styles.modeSuggestionCard}>
+                    <Text style={styles.modeSuggestionEyebrow}>PASSENDERER MODUS?</Text>
+                    <Text style={styles.modeSuggestionTitle}>Zu {modeName(answer.modeSuggestion.suggestedMode)} wechseln?</Text>
+                    <Text style={styles.modeSuggestionReason}>{answer.modeSuggestion.reason}</Text>
+                    <View style={styles.modeSuggestionActions}><Pressable style={styles.modeSuggestionAccept} onPress={() => applyModeSuggestion(answer.modeSuggestion!.suggestedMode)}><Text style={styles.modeSuggestionAcceptText}>Foto dort auswerten</Text></Pressable><Pressable style={styles.modeSuggestionDismiss} onPress={() => setModeSuggestionDismissed(true)}><Text style={styles.modeSuggestionDismissText}>Hier bleiben</Text></Pressable></View>
+                  </View> : null}
                   <GlassesDisplay state={state} answer={answer} error={null} codeScrollMode={settings.codeScrollMode} onCodeInteractionChange={handleCodeInteractionChange} />
                   {answer.discoveryInfo ? <DiscoveryInfoView info={answer.discoveryInfo} /> : null}
                   {answer.readingInfo ? <ReadingInfoView info={answer.readingInfo} /> : null}
@@ -465,6 +483,13 @@ function SettingsScreen({ settings, updateSetting }: {
       </View>
     </ScrollView>
   );
+}
+
+function modeName(mode: AssistantMode): string {
+  if (mode === 'discover') return 'Entdecken';
+  if (mode === 'read') return 'Lesen & Verstehen';
+  if (mode === 'solve') return 'Aufgabe lösen';
+  return 'Frage stellen';
 }
 
 function SettingRow({ title, description, value, onValueChange, disabled = false }: {
@@ -761,6 +786,7 @@ const styles = StyleSheet.create({
   focusCard: { minHeight: 330, borderRadius: 28, backgroundColor: '#101b14', borderWidth: 1, borderColor: '#26372d', padding: 24, gap: 14, alignItems: 'center', justifyContent: 'center' }, listeningPulse: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#32191d', borderWidth: 1, borderColor: '#6d3037', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }, listeningDot: { color: '#ff646b', fontSize: 32 }, focusTitle: { color: '#f3fff7', fontSize: 27, fontWeight: '900' }, focusCopy: { color: '#92a299', fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 310 },
   errorCard: { borderRadius: 24, backgroundColor: '#251517', borderWidth: 1, borderColor: '#653237', padding: 20, gap: 15 }, errorLabel: { color: '#ff7a80', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 }, errorText: { color: '#f4e8e9', fontSize: 17, lineHeight: 25 },
   answerWorkspace: { gap: 15 }, answerMeta: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, answerMetaOnly: { borderTopWidth: 0, paddingTop: 0 }, speakAction: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, followUpCard: { borderRadius: 20, backgroundColor: '#0d1812', borderWidth: 1, borderColor: '#26372d', padding: 15, gap: 11 }, answerActions: { flexDirection: 'row', gap: 10 }, destructiveAction: { color: '#d9787d', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 12 },
+  modeSuggestionCard: { borderRadius: 20, backgroundColor: '#261f0e', borderWidth: 1, borderColor: '#78652f', padding: 16, gap: 8 }, modeSuggestionEyebrow: { color: '#ffda77', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }, modeSuggestionTitle: { color: '#fff8e5', fontSize: 18, fontWeight: '900' }, modeSuggestionReason: { color: '#c7bfa7', fontSize: 13, lineHeight: 19 }, modeSuggestionActions: { flexDirection: 'row', gap: 8, marginTop: 4 }, modeSuggestionAccept: { flex: 1, minHeight: 42, borderRadius: 12, backgroundColor: '#ffda77', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 }, modeSuggestionAcceptText: { color: '#171207', fontSize: 12, fontWeight: '900' }, modeSuggestionDismiss: { minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#70633e', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }, modeSuggestionDismissText: { color: '#d7ccb0', fontSize: 12, fontWeight: '800' },
   discoveryInfoPanel: { borderRadius: 22, backgroundColor: '#102019', borderWidth: 1, borderColor: '#315440', padding: 18, gap: 8 }, discoveryInfoName: { color: '#f3fff7', fontSize: 25, fontWeight: '900' }, discoveryInfoDescription: { color: '#b4c5ba', fontSize: 15, lineHeight: 22 }, discoveryFactsTitle: { color: '#70ff9b', fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginTop: 8 }, discoveryFactRow: { flexDirection: 'row', gap: 9 }, discoveryFactBullet: { color: '#70ff9b', fontSize: 16 }, discoveryFactText: { flex: 1, color: '#e0ece4', fontSize: 14, lineHeight: 20 }, discoveryAlternatives: { color: '#8fa198', fontSize: 12, lineHeight: 18, marginTop: 5 }, discoverySafety: { color: '#ffda77', fontSize: 12, lineHeight: 18, borderTopWidth: 1, borderTopColor: '#3d4931', paddingTop: 9, marginTop: 4 },
   readingInfoPanel: { borderRadius: 22, backgroundColor: '#111b20', borderWidth: 1, borderColor: '#304957', padding: 18, gap: 8 }, readingInfoTitle: { color: '#f3fff7', fontSize: 23, lineHeight: 29, fontWeight: '900' }, readingSummary: { color: '#c5d6dc', fontSize: 15, lineHeight: 22 }, recognizedTextBox: { backgroundColor: '#091217', borderRadius: 14, borderWidth: 1, borderColor: '#263b46', padding: 13, marginTop: 5 }, recognizedText: { color: '#dce8ec', fontSize: 14, lineHeight: 21 },
   diagnosticsToggle: { minHeight: 66, borderRadius: 18, borderWidth: 1, borderColor: '#294033', backgroundColor: '#0d1812', paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, diagnosticsTitle: { color: '#dce9e0', fontSize: 14, fontWeight: '800' }, diagnosticsDescription: { color: '#77887e', fontSize: 11, marginTop: 3 }, diagnosticsArrow: { color: '#70ff9b', fontSize: 20, fontWeight: '800' },
