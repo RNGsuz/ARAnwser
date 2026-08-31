@@ -27,6 +27,17 @@ Dokumente für Testaufnahmen verwenden.
 - Foto wiederholen und Folgefrage senden; der ursprünglich gewählte Modus muss
   jeweils erhalten bleiben.
 
+## Deterministische Verifikation
+
+- Eine direkt berechenbare Aufgabe wie `2+2` stellen und prüfen, dass Ergebnis und
+  strukturierte Rechenkarte übereinstimmen.
+- Eine absichtlich manipulierte Testantwort mit falschem numerischem Ergebnis muss
+  serverseitig als ungültig abgelehnt werden.
+- Eine ausdrücklich benannte Methode anfordern; genau eine vollständige Einheit
+  mit balancierten Klammern muss zurückkommen.
+- Fehlende angeforderte Methoden oder abgeschnittene Bodies müssen als ungültiges
+  Antwortformat behandelt werden.
+
 ## Dokumente und Aufnahmebedingungen
 
 | Material | Erwartung |

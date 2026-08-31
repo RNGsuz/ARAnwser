@@ -18,7 +18,7 @@ describe("pipeline policy", () => {
   it("reserves larger reasoning responses for code", () => {
     const policy = selectPipelinePolicy({ intent: "solve", question: "Implementiere drei Methoden in Java", locale: "de-DE" }, models);
     expect(policy).toMatchObject({ model: "reasoning", reasoningEffort: "medium", maxOutputTokens: 5000 });
-    expect(policy.allowedTools).toEqual(["ocr", "code_verifier"]);
+    expect(policy.allowedTools).toEqual(["ocr", "calculator", "code_verifier"]);
   });
 
   it("marks calculator as eligible only for mathematical solve requests", () => {

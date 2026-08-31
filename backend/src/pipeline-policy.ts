@@ -44,6 +44,6 @@ export function selectPipelinePolicy(
     reasoningEffort: isCode ? "medium" : "low",
     maxOutputTokens: isCode ? 5000 : 3000,
     imageDetail: "high",
-    allowedTools: ["ocr", ...(isCode ? ["code_verifier" as const] : []), ...(isMath ? ["calculator" as const] : [])],
+    allowedTools: ["ocr", "calculator", "code_verifier"],
   };
 }

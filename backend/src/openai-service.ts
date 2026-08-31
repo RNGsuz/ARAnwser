@@ -2,6 +2,7 @@ import OpenAI, { toFile } from "openai";
 import { answerSchema, glassesExerciseSchema, recognizedItemSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
 import type { Config } from "./config.js";
 import { selectPipelinePolicy } from "./pipeline-policy.js";
+import { validateAnswerWithTools } from "./answer-validation.js";
 
 export const outputJsonSchema = {
   type: "object",
@@ -353,7 +354,7 @@ export class OpenAIVisionService implements VisionService {
 
     if (response.status === "incomplete") throw new Error("ai_response_incomplete");
     try {
-      return parseAnswerPayload(JSON.parse(response.output_text), intent);
+      return validateAnswerWithTools(parseAnswerPayload(JSON.parse(response.output_text), intent), input, policy.allowedTools);
     } catch (cause) {
       throw new Error("ai_response_invalid", { cause });
     }

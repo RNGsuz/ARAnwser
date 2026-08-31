@@ -38,6 +38,14 @@ markiert OCR, Calculator und Codeprüfung nur in fachlich passenden Pipelines al
 zulässig. Noch nicht implementierte Werkzeuge werden dadurch nicht vorgetäuscht
 oder an das Modell übertragen.
 
+Zwei zulässige Werkzeuge laufen bereits deterministisch im Backend: Der Calculator
+wertet ausschließlich begrenzte numerische Grundrechen-Ausdrücke ohne `eval` aus
+und vergleicht direkt prüfbare Ergebnisse. Der Code-Verifier kontrolliert
+vollständige schließende Klammern, balancierte Einheiten und ausdrücklich genannte
+Methodensignaturen. Nicht sicher prüfbare Mathematik wird unverändert an die
+Modell- und Testpipeline weitergereicht, statt durch einen unsicheren Parser
+bewertet zu werden.
+
 ## Expo-Prototyp starten
 
 Handy und Entwicklungsrechner müssen im selben Netzwerk sein. Zuerst die
