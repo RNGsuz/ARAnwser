@@ -33,6 +33,13 @@ export const recognizedItemSchema = z.object({
   sourceLatex: z.string().min(1).max(1000),
 });
 
+export const glassesCodeUnitSchema = z.object({
+  label: z.string().min(1).max(160),
+  language: z.string().min(1).max(40),
+  code: z.string().min(1).max(4000),
+  explanation: z.string().min(1).max(240),
+});
+
 export const answerSchema = z.object({
   shortAnswer: z.string().min(1).max(240),
   glassesSummary: z.object({
@@ -41,6 +48,7 @@ export const answerSchema = z.object({
   }),
   glassesExercises: z.array(glassesExerciseSchema).max(12),
   recognizedItems: z.array(recognizedItemSchema).max(12),
+  glassesCodeUnits: z.array(glassesCodeUnitSchema).max(12),
   solution: z.object({
     kind: z.enum(["math", "code", "document", "concept", "direct", "selection"]),
     title: z.string().min(1).max(80),

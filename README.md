@@ -92,9 +92,12 @@ Die ausführliche Smartphone-Antwort ist als **Details / Diagnose** standardmä�
 eingeklappt. Sie bleibt für Kontrolle und spätere Verbesserung verfügbar, ist
 aber gegenüber der Brillenansicht zweitrangig.
 
-Bei Implementierungsaufgaben bleibt jede Methode, Klasse oder Testeinheit zusammen:
-Titel, vollständiger Code und Erklärung erscheinen als eine semantische Einheit.
-Der Code wird nicht nochmals in der Vertiefung dupliziert. Im simulierten
+Bei Implementierungsaufgaben erscheint jede angeforderte Methode, Hilfsmethode,
+Klasse oder Testeinheit in Aufgabenreihenfolge als eigene semantische Einheit.
+Sie beginnt mit der vollständigen Deklaration und endet mit der zugehörigen
+schließenden Klammer. Titel, vollständiger Code und Erklärung bleiben zusammen;
+kombinierte Sammelblöcke und eine zusätzliche „Warum?“-Karte entfallen. Der Code
+wird nicht nochmals in der Vertiefung dupliziert. Im simulierten
 Brillendisplay lässt sich eine solche Einheit über ein Fünf-Zeilen-Fenster vertikal
 scrollen; der horizontale Kartenwechsel führt zur nächsten beziehungsweise
 vorherigen Einheit. Ältere

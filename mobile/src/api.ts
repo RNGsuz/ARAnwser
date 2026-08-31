@@ -9,6 +9,7 @@ function normalizeBaseUrl(value: string | undefined): string | undefined {
 const baseUrl = normalizeBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
 const token = process.env.EXPO_PUBLIC_CLIENT_TOKEN ?? '';
 const requestTimeoutMs = 25_000;
+const answerTimeoutMs = 60_000;
 
 function headers(json = false): Record<string, string> {
   return {
@@ -49,9 +50,9 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
   return result.transcript;
 }
 
-async function request(url: string, init: RequestInit): Promise<Response> {
+async function request(url: string, init: RequestInit, timeoutMs = requestTimeoutMs): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (cause) {
@@ -79,7 +80,7 @@ export async function createQuery(
   form.append('sessionId', sessionId);
   form.append('locale', 'de-DE');
   form.append('includeSteps', String(options.includeSteps ?? true));
-  const response = await request(`${baseUrl}/v1/queries`, { method: 'POST', headers: headers(), body: form });
+  const response = await request(`${baseUrl}/v1/queries`, { method: 'POST', headers: headers(), body: form }, answerTimeoutMs);
   return readResponse(response);
 }
 
@@ -89,7 +90,7 @@ export async function createFollowUp(sessionId: string, question: string, includ
     method: 'POST',
     headers: headers(true),
     body: JSON.stringify({ question, locale: 'de-DE', includeSteps }),
-  });
+  }, answerTimeoutMs);
   return readResponse(response);
 }
 
@@ -99,7 +100,7 @@ export async function createGeneralQuestion(sessionId: string, question: string,
     method: 'POST',
     headers: headers(true),
     body: JSON.stringify({ question, sessionId, locale: 'de-DE', includeSteps }),
-  });
+  }, answerTimeoutMs);
   return readResponse(response);
 }
 
@@ -111,7 +112,7 @@ export async function createVoiceFollowUp(sessionId: string, audioUri: string, i
   form.append('includeSteps', String(includeSteps));
   const response = await request(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
     method: 'POST', headers: headers(), body: form,
-  });
+  }, answerTimeoutMs);
   return readResponse(response);
 }
 

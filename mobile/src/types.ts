@@ -42,6 +42,13 @@ export interface RecognizedItem {
   sourceLatex: string;
 }
 
+export interface GlassesCodeUnit {
+  label: string;
+  language: string;
+  code: string;
+  explanation: string;
+}
+
 export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
@@ -50,6 +57,7 @@ export interface DocumentAnswer {
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   glassesExercises?: GlassesExercise[];
   recognizedItems?: RecognizedItem[];
+  glassesCodeUnits?: GlassesCodeUnit[];
   solution?: GuidedSolution;
   spokenAnswer: string;
   evidence: string[];
@@ -65,6 +73,7 @@ export interface HistoryEntry {
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
   glassesExercises?: GlassesExercise[];
   recognizedItems?: RecognizedItem[];
+  glassesCodeUnits?: GlassesCodeUnit[];
   solution?: GuidedSolution;
   spokenAnswer: string;
   confidence: number;

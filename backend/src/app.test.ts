@@ -20,6 +20,7 @@ const answer = {
   glassesSummary: { format: "output" as const, lines: ["a) 42"] },
   glassesExercises: [],
   recognizedItems: [],
+  glassesCodeUnits: [],
   solution: {
     kind: "math" as const,
     title: "Lösungsweg",

@@ -486,17 +486,17 @@ function solutionStepBlocks(step: SolutionStep) {
   return [{ type: 'text' as const, markdown: step.content }];
 }
 
-function supplementaryBlocks(answer: Pick<DocumentAnswer, 'blocks' | 'solution'>): AnswerBlock[] | undefined {
-  if (!answer.solution?.steps.some((step) => step.contentType === 'code')) return answer.blocks;
+function supplementaryBlocks(answer: Pick<DocumentAnswer, 'blocks' | 'solution' | 'glassesCodeUnits'>): AnswerBlock[] | undefined {
+  if (!answer.glassesCodeUnits?.length && !answer.solution?.steps.some((step) => step.contentType === 'code')) return answer.blocks;
   const withoutRepeatedCode = answer.blocks?.filter((block) => block.type !== 'code');
   return withoutRepeatedCode?.length ? withoutRepeatedCode : undefined;
 }
 
 function DetailedAnswerView({ answer, showMeta = false }: {
-  answer: Pick<DocumentAnswer, 'blocks' | 'solution' | 'spokenAnswer' | 'confidence'>;
+  answer: Pick<DocumentAnswer, 'blocks' | 'solution' | 'glassesCodeUnits' | 'spokenAnswer' | 'confidence'>;
   showMeta?: boolean;
 }) {
-  const hasCodeUnits = answer.solution?.steps.some((step) => step.contentType === 'code') ?? false;
+  const hasCodeUnits = Boolean(answer.glassesCodeUnits?.length) || (answer.solution?.steps.some((step) => step.contentType === 'code') ?? false);
   const blocks = supplementaryBlocks(answer);
   const showContent = !hasCodeUnits || Boolean(blocks?.length);
   if (!showContent && !showMeta) return null;
@@ -553,9 +553,10 @@ function GlassesDisplay({ state, answer, error, codeScrollMode, onCodeInteractio
   }
 
   const card = cards[cardIndex];
-  const isScrollableCode = card?.type === 'step' && card.step.contentType === 'code';
+  const codeContent = card?.type === 'codeUnit' ? card.unit.code : card?.type === 'step' && card.step.contentType === 'code' ? card.step.content : null;
+  const isScrollableCode = codeContent !== null;
   const codeLineHeight = 20;
-  const codeLineCount = isScrollableCode ? wrapCode(card.step.content).length : 0;
+  const codeLineCount = codeContent ? wrapCode(codeContent).length : 0;
   const maxCodePixel = Math.max(0, codeLineCount - 5) * codeLineHeight;
   function settleCodeScroll(targetPixel: number, animation: CodeScrollMode) {
     const bounded = Math.max(0, Math.min(maxCodePixel, targetPixel));
@@ -631,10 +632,11 @@ function GlassesCardContent({ card, codePosition, codePixelOffset, codeScrollMod
   if (card.type === 'summary') return <View><View style={styles.displaySummaryLines}>{card.lines.map((line, index) => <Text key={`${index}-${line}`} style={card.format === 'output' ? styles.displayOutputLine : styles.displayAnswer}>{line}</Text>)}</View>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
   if (card.type === 'exercise') return <View style={styles.displayMathExercise}>{card.transformations.map((transformation, index) => { const finalResult = card.page === card.pages && index === card.transformations.length - 1; return <View style={[styles.displayMathTransformation, finalResult && styles.displayMathResult]} key={`${index}-${transformation.latex}`}><View style={styles.displayMathFormula}><MathLine latex={transformation.latex} dense /></View><Text style={[styles.displayMathOperation, finalResult && styles.displayMathOperationResult]}>{transformation.operation || (finalResult ? 'ERGEBNIS' : 'START')}</Text></View>; })}</View>;
   if (card.type === 'recognized') return <View style={styles.displayRecognized}>{card.items.map((item, index) => <View style={styles.displayRecognizedItem} key={`${index}-${item.label}`}><Text style={styles.displayRecognizedLabel}>{item.label}</Text><View style={styles.displayRecognizedFormula}><MathLine latex={item.sourceLatex} dense /></View></View>)}</View>;
-  if (card.type === 'step' && card.step.contentType === 'code') {
-    const lines = wrapCode(card.step.content);
+  if (card.type === 'codeUnit' || (card.type === 'step' && card.step.contentType === 'code')) {
+    const unit = card.type === 'codeUnit' ? card.unit : { label: card.step.title, code: card.step.content, explanation: card.step.explanation };
+    const lines = wrapCode(unit.code);
     const firstLine = Math.floor(codePosition);
-    return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><View style={styles.displayCodeViewport}><Animated.View style={{ transform: [{ translateY: Animated.multiply(codePixelOffset, -1) }] }}>{lines.map((line, index) => <View style={styles.displayCodeRowFixed} key={`${line.sourceLine}-${index}`}><Text style={styles.displayLineNumber}>{line.continuation ? '↳' : String(line.sourceLine).padStart(2, '0')}</Text><Text style={styles.displayCodeText}>{line.text}</Text></View>)}</Animated.View></View><Text style={styles.displayScrollHint}>↑↓ {codeScrollMode === 'line' ? 'Zeilenweise' : codeScrollMode === 'smoothSnap' ? 'Smooth Snap' : 'Fließend'} · {firstLine + 1}–{Math.min(firstLine + 5, lines.length)} / {lines.length}</Text><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
+    return <View style={styles.displayStep}><Text style={styles.displayStepTitle} numberOfLines={2}>{unit.label}</Text><View style={styles.displayCodeViewport}><Animated.View style={{ transform: [{ translateY: Animated.multiply(codePixelOffset, -1) }] }}>{lines.map((line, index) => <View style={styles.displayCodeRowFixed} key={`${line.sourceLine}-${index}`}><Text style={styles.displayLineNumber}>{line.continuation ? '↳' : String(line.sourceLine).padStart(2, '0')}</Text><Text style={styles.displayCodeText}>{line.text}</Text></View>)}</Animated.View></View><Text style={styles.displayScrollHint}>↑↓ {codeScrollMode === 'line' ? 'Zeilenweise' : codeScrollMode === 'smoothSnap' ? 'Smooth Snap' : 'Fließend'} · {firstLine + 1}–{Math.min(firstLine + 5, lines.length)} / {lines.length}</Text><Text style={styles.displayStepExplanation} numberOfLines={2}>{unit.explanation}</Text></View>;
   }
   if (card.type === 'step') return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><AnswerContent blocks={solutionStepBlocks(card.step)} fallback={card.step.content} compact /><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
   if (card.type === 'math') return <AnswerContent blocks={[card.block]} fallback="" compact />;

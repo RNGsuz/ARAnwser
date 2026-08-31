@@ -1,4 +1,4 @@
-import type { AnswerBlock, DocumentAnswer, GlassesExercise, RecognizedItem, SolutionStep } from './types';
+import type { AnswerBlock, DocumentAnswer, GlassesCodeUnit, GlassesExercise, RecognizedItem, SolutionStep } from './types';
 
 export interface GlassesCodeLine {
   sourceLine: number;
@@ -10,6 +10,7 @@ export type GlassesCard =
   | { type: 'summary'; title: string; format: 'text' | 'output'; lines: string[]; nextHint: string | null }
   | { type: 'exercise'; title: string; exercise: GlassesExercise; transformations: GlassesExercise['transformations']; page: number; pages: number }
   | { type: 'recognized'; title: string; items: RecognizedItem[]; page: number; pages: number }
+  | { type: 'codeUnit'; title: string; unit: GlassesCodeUnit }
   | { type: 'step'; title: string; number: number; total: number; step: SolutionStep }
   | { type: 'code'; title: string; lines: GlassesCodeLine[] }
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
@@ -67,6 +68,7 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const solutionSteps = answer.solution?.steps ?? [];
   const exercises = answer.glassesExercises ?? [];
   const recognizedItems = answer.recognizedItems ?? [];
+  const codeUnits = answer.glassesCodeUnits ?? [];
   const hasPrimaryMathDisplay = exercises.length > 0 || recognizedItems.length > 0;
   const codeLivesInSolution = solutionSteps.some((step) => step.contentType === 'code');
   if (hasPrimaryMathDisplay) {
@@ -86,6 +88,8 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
     recognizedPages.forEach((items, index) => detailCards.push({
       type: 'recognized', title: recognizedPages.length > 1 ? `ERKANNT ${index + 1}/${recognizedPages.length}` : 'ERKANNT', items, page: index + 1, pages: recognizedPages.length,
     }));
+  } else if (codeUnits.length) {
+    codeUnits.forEach((unit) => detailCards.push({ type: 'codeUnit', title: unit.label, unit }));
   } else {
     solutionSteps.forEach((step, index) => detailCards.push({
       type: 'step', title: `SCHRITT ${index + 1}/${solutionSteps.length}`, number: index + 1, total: solutionSteps.length, step,
@@ -103,6 +107,8 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const firstDetail = detailCards[0];
   const nextHint = firstDetail?.type === 'code'
     ? 'Nach links für Code'
+    : firstDetail?.type === 'codeUnit'
+      ? 'Nach links für Methoden'
     : firstDetail?.type === 'math'
       ? 'Nach links für Formel'
       : firstDetail?.type === 'step'

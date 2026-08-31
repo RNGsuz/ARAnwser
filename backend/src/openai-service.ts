@@ -1,20 +1,20 @@
 import OpenAI, { toFile } from "openai";
-import { answerSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
+import { answerSchema, glassesExerciseSchema, recognizedItemSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
 import type { Config } from "./config.js";
 
 export const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
+  required: ["shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
   properties: {
-    shortAnswer: { type: "string", maxLength: 240 },
+    shortAnswer: { type: "string", minLength: 1, maxLength: 240 },
     glassesSummary: {
       type: "object",
       additionalProperties: false,
       required: ["format", "lines"],
       properties: {
         format: { type: "string", enum: ["text", "output"] },
-        lines: { type: "array", minItems: 1, maxItems: 12, items: { type: "string", maxLength: 80 } },
+        lines: { type: "array", minItems: 1, maxItems: 12, items: { type: "string", minLength: 1, maxLength: 80 } },
       },
     },
     glassesExercises: {
@@ -25,10 +25,10 @@ export const outputJsonSchema = {
         additionalProperties: false,
         required: ["label", "labelSource", "sourceLatex", "resultLatex", "transformations"],
         properties: {
-          label: { type: "string", maxLength: 80 },
+          label: { type: "string", minLength: 1, maxLength: 80 },
           labelSource: { type: "string", enum: ["document", "generated"] },
-          sourceLatex: { type: "string", maxLength: 1000 },
-          resultLatex: { type: "string", maxLength: 500 },
+          sourceLatex: { type: "string", minLength: 1, maxLength: 1000 },
+          resultLatex: { type: "string", minLength: 1, maxLength: 500 },
           transformations: {
             type: "array",
             maxItems: 6,
@@ -37,7 +37,7 @@ export const outputJsonSchema = {
               additionalProperties: false,
               required: ["latex", "operation"],
               properties: {
-                latex: { type: "string", maxLength: 1000 },
+                latex: { type: "string", minLength: 1, maxLength: 1000 },
                 operation: { type: ["string", "null"], maxLength: 60 },
               },
             },
@@ -53,9 +53,24 @@ export const outputJsonSchema = {
         additionalProperties: false,
         required: ["label", "labelSource", "sourceLatex"],
         properties: {
-          label: { type: "string", maxLength: 80 },
+          label: { type: "string", minLength: 1, maxLength: 80 },
           labelSource: { type: "string", enum: ["document", "generated"] },
-          sourceLatex: { type: "string", maxLength: 1000 },
+          sourceLatex: { type: "string", minLength: 1, maxLength: 1000 },
+        },
+      },
+    },
+    glassesCodeUnits: {
+      type: "array",
+      maxItems: 12,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["label", "language", "code", "explanation"],
+        properties: {
+          label: { type: "string", minLength: 1, maxLength: 160 },
+          language: { type: "string", minLength: 1, maxLength: 40 },
+          code: { type: "string", minLength: 1, maxLength: 4000 },
+          explanation: { type: "string", minLength: 1, maxLength: 240 },
         },
       },
     },
@@ -65,7 +80,7 @@ export const outputJsonSchema = {
       required: ["kind", "title", "steps"],
       properties: {
         kind: { type: "string", enum: ["math", "code", "document", "concept", "direct", "selection"] },
-        title: { type: "string", maxLength: 80 },
+        title: { type: "string", minLength: 1, maxLength: 80 },
         steps: {
           type: "array",
           maxItems: 8,
@@ -74,18 +89,18 @@ export const outputJsonSchema = {
             additionalProperties: false,
             required: ["title", "explanation", "contentType", "content", "language"],
             properties: {
-              title: { type: "string", maxLength: 60 },
-              explanation: { type: "string", maxLength: 240 },
+              title: { type: "string", minLength: 1, maxLength: 60 },
+              explanation: { type: "string", minLength: 1, maxLength: 240 },
               contentType: { type: "string", enum: ["text", "math", "code"] },
-              content: { type: "string", maxLength: 1600 },
+              content: { type: "string", minLength: 1, maxLength: 1600 },
               language: { type: ["string", "null"], maxLength: 40 },
             },
           },
         },
       },
     },
-    spokenAnswer: { type: "string", maxLength: 1600 },
-    evidence: { type: "array", maxItems: 3, items: { type: "string", maxLength: 320 } },
+    spokenAnswer: { type: "string", minLength: 1, maxLength: 1600 },
+    evidence: { type: "array", maxItems: 3, items: { type: "string", minLength: 1, maxLength: 320 } },
     confidence: { type: "number", minimum: 0, maximum: 1 },
     needsRetake: { type: "boolean" },
     retakeHint: { type: ["string", "null"], maxLength: 240 },
@@ -99,7 +114,7 @@ export const outputJsonSchema = {
             type: "object",
             additionalProperties: false,
             required: ["type", "markdown"],
-            properties: { type: { type: "string", const: "text" }, markdown: { type: "string", maxLength: 4000 } },
+            properties: { type: { type: "string", const: "text" }, markdown: { type: "string", minLength: 1, maxLength: 4000 } },
           },
           {
             type: "object",
@@ -108,7 +123,7 @@ export const outputJsonSchema = {
             properties: {
               type: { type: "string", const: "code" },
               language: { type: "string", maxLength: 40 },
-              code: { type: "string", maxLength: 8000 },
+              code: { type: "string", minLength: 1, maxLength: 8000 },
             },
           },
           {
@@ -117,7 +132,7 @@ export const outputJsonSchema = {
             required: ["type", "latex", "displayMode"],
             properties: {
               type: { type: "string", const: "math" },
-              latex: { type: "string", maxLength: 2000 },
+              latex: { type: "string", minLength: 1, maxLength: 2000 },
               displayMode: { type: "boolean" },
             },
           },
@@ -126,6 +141,33 @@ export const outputJsonSchema = {
     },
   },
 } as const;
+
+export function parseAnswerPayload(payload: unknown): Answer {
+  const parsed = answerSchema.safeParse(payload);
+  if (parsed.success) return parsed.data;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw parsed.error;
+  const source = payload as Record<string, unknown>;
+  const glassesExercises = Array.isArray(source.glassesExercises)
+    ? source.glassesExercises.flatMap((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+      const candidate = item as Record<string, unknown>;
+      const transformations = Array.isArray(candidate.transformations)
+        ? candidate.transformations.filter((step) => step && typeof step === "object" && !Array.isArray(step) && typeof (step as Record<string, unknown>).latex === "string" && ((step as Record<string, unknown>).latex as string).trim().length > 0)
+        : [];
+      const sanitized = glassesExerciseSchema.safeParse({ ...candidate, transformations });
+      return sanitized.success ? [sanitized.data] : [];
+    })
+    : [];
+  const recognizedItems = Array.isArray(source.recognizedItems)
+    ? source.recognizedItems.flatMap((item) => {
+      const sanitized = recognizedItemSchema.safeParse(item);
+      return sanitized.success ? [sanitized.data] : [];
+    })
+    : [];
+  const fallback = answerSchema.safeParse({ ...source, glassesExercises, recognizedItems });
+  if (fallback.success) return fallback.data;
+  throw parsed.error;
+}
 
 export class OpenAIVisionService implements VisionService {
   private readonly client: OpenAI;
@@ -180,7 +222,9 @@ export class OpenAIVisionService implements VisionService {
           ? "The user disabled solution paths. Every glassesExercises transformations array must be empty. Keep the result summary and recognized items. The secondary phone-oriented solution and blocks may still contain concise diagnostic detail."
           : "The user enabled solution paths. For each math exercise, transformations contains the complete derivation in at most six compact states, including the original expression as the first state and final result as the last. Each entry is exactly one mathematical state. operation is null for the first state and otherwise a very short, unambiguous action such as ausmult., −20x², −3x, or ÷(−7). Do not use implication arrows to chain several states inside one entry.",
         "Use solution as a progressive learning path after the result. For math, use kind=math and one meaningful transformation per step with LaTeX in content. For document questions, use kind=document and progress from the relevant passage to its interpretation. For conceptual questions, use kind=concept and progress from the key idea to the reason or consequence. Use kind=selection when asking the user to choose an independent exercise. Use kind=direct and zero steps only when steps add no learning value. Keep every step independently understandable, concise, and free of invented evidence. language is only set for code content and null otherwise.",
-        "For a code implementation task, use kind=code and make each method, class, or other logical implementation unit one solution step. Put that unit's complete code exactly once in step.content with contentType=code, its language in step.language, and a concise explanation in step.explanation. Keep units in requested reading order. Include tests as their own code step when requested. For code tracing rather than implementation, use one step per relevant execution stage and avoid repeating the unchanged source.",
+        "For a code implementation task, use kind=code. The implementation itself belongs exclusively in glassesCodeUnits, while solution.steps stays empty. For code tracing rather than implementation, leave glassesCodeUnits empty, use one solution step per relevant execution stage, and avoid repeating unchanged source.",
+        "For code implementation tasks, glassesCodeUnits is the primary display output. Create exactly one unit for every requested method, helper method, class, and test/main section that you implement, in the order requested by the task. label is the complete signature or a precise visible name, code contains that unit from declaration through its final closing brace with nothing omitted, language is the source language, and explanation is one concise sentence. Never combine several methods in one unit and never split one method across units. For non-implementation answers, glassesCodeUnits is empty.",
+        "When glassesCodeUnits is non-empty, keep solution.steps empty and never repeat any of its code in blocks. blocks may contain only genuinely supplementary non-code diagnostics. evidence must not be used to create method explanations; each code unit already owns its explanation.",
         "Solve and verify the task before writing any result field. shortAnswer, glassesSummary, solution, spokenAnswer, evidence, and blocks must agree on the same result. Never repeat code that already occurs in a solution step inside blocks. For code implementations, blocks contain only genuinely supplementary prose, formulas, or code not already represented as a unit. For all other tasks, use blocks only for useful final detail rather than duplicating every step.",
         "Build blocks in reading order. Use text blocks for prose and limited Markdown, code blocks for source code with its language, and math blocks for LaTeX. Never put code or display mathematics into a text block.",
         "spokenAnswer must verbalize formulas and code naturally instead of reading raw LaTeX or punctuation.",
@@ -198,12 +242,12 @@ export class OpenAIVisionService implements VisionService {
           schema: outputJsonSchema,
         },
       },
-      max_output_tokens: 2600,
+      max_output_tokens: 5000,
     });
 
     if (response.status === "incomplete") throw new Error("ai_response_incomplete");
     try {
-      return answerSchema.parse(JSON.parse(response.output_text));
+      return parseAnswerPayload(JSON.parse(response.output_text));
     } catch (cause) {
       throw new Error("ai_response_invalid", { cause });
     }

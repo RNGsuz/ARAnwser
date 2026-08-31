@@ -42,6 +42,9 @@ function answerContext(answer: Answer): string {
   const glassesMath = answer.glassesExercises.map((exercise) =>
     `${exercise.label} ${exercise.sourceLatex} => ${exercise.resultLatex}\n${exercise.transformations.map((step) => `${step.latex}${step.operation ? ` [${step.operation}]` : ""}`).join("\n")}`,
   ).join("\n\n");
+  const glassesCode = answer.glassesCodeUnits.map((unit) =>
+    `${unit.label} (${unit.language}):\n${unit.code}\n${unit.explanation}`,
+  ).join("\n\n");
   const steps = answer.solution.steps.map((step, index) =>
     `Step ${index + 1} – ${step.title}: ${step.content}\n${step.explanation}`,
   ).join("\n\n");
@@ -50,7 +53,7 @@ function answerContext(answer: Answer): string {
     if (block.type === "math") return `Formula (LaTeX): ${block.latex}`;
     return block.markdown;
   }).join("\n\n");
-  return `${answer.spokenAnswer}\n\n${glassesMath}\n\n${steps}\n\n${structured}`.slice(0, 12_000);
+  return `${answer.spokenAnswer}\n\n${glassesMath}\n\n${glassesCode}\n\n${steps}\n\n${structured}`.slice(0, 16_000);
 }
 
 export async function buildApp(config: Config, vision: VisionService): Promise<FastifyInstance> {

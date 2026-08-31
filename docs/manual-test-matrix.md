@@ -53,6 +53,11 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 - App neu laden und prüfen, dass die gewählte Scrollmethode erhalten bleibt.
 - Code aus den Methodeneinheiten darf weder in späteren Brillenkarten noch in der
   Smartphone-Vertiefung ein zweites Mal vollständig erscheinen.
+- Bei der Drei-Methoden-Aufgabe müssen nach der Kurzantwort genau drei getrennte
+  Methodenkarten in Aufgabenreihenfolge folgen. Jede beginnt mit ihrer Deklaration,
+  endet mit ihrer schließenden Klammer und ist vollständig vertikal scrollbar.
+  Eine Sammelkarte „Methoden und Hilfsmethoden“ sowie eine zusätzliche
+  „Warum?“-Karte dürfen nicht erscheinen.
 - Jeder Lernschritt muss auf der Brille eine eigene Karte belegen. Direkte
   Wissensfragen dürfen ohne künstlichen Lösungsweg antworten.
 - Kontrollieren, dass TTS verständlichen Text statt roher LaTeX-Befehle vorliest.
