@@ -10,7 +10,7 @@ export const solutionStepSchema = z.object({
   title: z.string().min(1).max(60),
   explanation: z.string().min(1).max(240),
   contentType: z.enum(["text", "math", "code"]),
-  content: z.string().min(1).max(600),
+  content: z.string().min(1).max(1600),
   language: z.string().max(40).nullable(),
 });
 

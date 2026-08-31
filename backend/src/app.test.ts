@@ -59,6 +59,20 @@ describe("query API", () => {
     await app.close();
   });
 
+  it("reports an incomplete AI response distinctly", async () => {
+    const vision: VisionService = { answer: vi.fn().mockRejectedValue(new Error("ai_response_incomplete")), transcribe: vi.fn() };
+    const app = await buildApp(config, vision);
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { question: "Erkläre diesen Code.", locale: "de-DE" },
+    });
+    expect(response.statusCode).toBe(502);
+    expect(response.json().error).toBe("ai_response_incomplete");
+    await app.close();
+  });
+
   it("returns a transcript before a query is submitted", async () => {
     const vision: VisionService = {
       answer: vi.fn(),

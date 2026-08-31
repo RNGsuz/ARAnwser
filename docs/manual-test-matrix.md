@@ -32,6 +32,13 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
   abschließend die Vertiefung.
 - Bei Code prüfen: Ausgabe beziehungsweise Resultat zuerst, danach relevante
   Ablaufstufen; bei Dokumenten Fundstelle vor Interpretation anzeigen.
+- Eine Aufgabe mit mindestens drei Methoden prüfen: Jede Methode muss mit ihrem
+  vollständigen Body und ihrer Erklärung zusammenbleiben. Methodenköpfe dürfen
+  nicht gesammelt vor den späteren Bodies erscheinen.
+- Methodencode im Brillendisplay vertikal scrollen und danach horizontal zur
+  nächsten Methode wechseln. Eine vertikale Geste darf keine Karte weiterschalten.
+- Code aus den Methodeneinheiten darf weder in späteren Brillenkarten noch in der
+  Smartphone-Vertiefung ein zweites Mal vollständig erscheinen.
 - Jeder Lernschritt muss auf der Brille eine eigene Karte belegen. Direkte
   Wissensfragen dürfen ohne künstlichen Lösungsweg antworten.
 - Kontrollieren, dass TTS verständlichen Text statt roher LaTeX-Befehle vorliest.

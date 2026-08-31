@@ -60,11 +60,12 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const blocks = answer.blocks ?? [];
   const detailCards: GlassesCard[] = [];
   const solutionSteps = answer.solution?.steps ?? [];
+  const codeLivesInSolution = solutionSteps.some((step) => step.contentType === 'code');
   solutionSteps.forEach((step, index) => detailCards.push({
     type: 'step', title: `SCHRITT ${index + 1}/${solutionSteps.length}`, number: index + 1, total: solutionSteps.length, step,
   }));
   for (const block of blocks) {
-    if (block.type === 'code') {
+    if (block.type === 'code' && !codeLivesInSolution) {
       for (const page of chunks(wrapCode(block.code), codeLinesPerCard)) {
         detailCards.push({ type: 'code', title: block.language?.toUpperCase() || 'CODE', lines: page });
       }

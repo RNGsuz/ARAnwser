@@ -35,7 +35,7 @@ export const outputJsonSchema = {
               title: { type: "string", maxLength: 60 },
               explanation: { type: "string", maxLength: 240 },
               contentType: { type: "string", enum: ["text", "math", "code"] },
-              content: { type: "string", maxLength: 600 },
+              content: { type: "string", maxLength: 1600 },
               language: { type: ["string", "null"], maxLength: 40 },
             },
           },
@@ -131,7 +131,9 @@ export class OpenAIVisionService implements VisionService {
         hasImage ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
         "Use the previous exchange only to resolve contextual follow-ups. Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief supporting points.",
         "glassesSummary is the result-only view for a small display. For related subquestions, create exactly one concise line per requested part and preserve labels such as a), b), and c). Do not add reasoning, introductions, raw LaTeX commands, dollar delimiters, or environments such as begin/end to these lines; use readable Unicode symbols where useful. Quote string results and write numbers, booleans, and null explicitly. Set format=output for program output, exact result lists, or labeled exercise answers; otherwise use format=text. For a normal single question, use one to three short lines.",
-        "Use solution as a progressive learning path after the result. For math, use kind=math and one meaningful transformation per step with LaTeX in content. For code, use kind=code and show the relevant execution or reasoning stages, using exact code/output where helpful. For document questions, use kind=document and progress from the relevant passage to its interpretation. For conceptual questions, use kind=concept and progress from the key idea to the reason or consequence. Use kind=selection when asking the user to choose an independent exercise. Use kind=direct and zero steps only when steps add no learning value. Keep every step independently understandable, concise, and free of invented evidence. language is only set for code content and null otherwise.",
+        "Use solution as a progressive learning path after the result. For math, use kind=math and one meaningful transformation per step with LaTeX in content. For document questions, use kind=document and progress from the relevant passage to its interpretation. For conceptual questions, use kind=concept and progress from the key idea to the reason or consequence. Use kind=selection when asking the user to choose an independent exercise. Use kind=direct and zero steps only when steps add no learning value. Keep every step independently understandable, concise, and free of invented evidence. language is only set for code content and null otherwise.",
+        "For a code implementation task, use kind=code and make each method, class, or other logical implementation unit one solution step. Put that unit's complete code exactly once in step.content with contentType=code, its language in step.language, and a concise explanation in step.explanation. Keep units in requested reading order. Include tests as their own code step when requested. For code tracing rather than implementation, use one step per relevant execution stage and avoid repeating the unchanged source.",
+        "Solve and verify the task before writing any result field. shortAnswer, glassesSummary, solution, spokenAnswer, evidence, and blocks must agree on the same result. Never repeat code that already occurs in a solution step inside blocks. For code implementations, blocks contain only genuinely supplementary prose, formulas, or code not already represented as a unit. For all other tasks, use blocks only for useful final detail rather than duplicating every step.",
         "Build blocks in reading order. Use text blocks for prose and limited Markdown, code blocks for source code with its language, and math blocks for LaTeX. Never put code or display mathematics into a text block.",
         "spokenAnswer must verbalize formulas and code naturally instead of reading raw LaTeX or punctuation.",
         `Answer in locale ${input.locale}.`,
@@ -148,9 +150,14 @@ export class OpenAIVisionService implements VisionService {
           schema: outputJsonSchema,
         },
       },
-      max_output_tokens: 1400,
+      max_output_tokens: 2600,
     });
 
-    return answerSchema.parse(JSON.parse(response.output_text));
+    if (response.status === "incomplete") throw new Error("ai_response_incomplete");
+    try {
+      return answerSchema.parse(JSON.parse(response.output_text));
+    } catch (cause) {
+      throw new Error("ai_response_invalid", { cause });
+    }
   }
 }

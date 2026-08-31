@@ -85,6 +85,14 @@ Interpretation und bei Theorie von der Kernaussage zur Begründung. Auf der Bril
 belegt jeder Lernschritt eine eigene Karte. Wenn eine direkte Antwort verständlicher
 ist, werden keine künstlichen Schritte erzeugt.
 
+Bei Implementierungsaufgaben bleibt jede Methode, Klasse oder Testeinheit zusammen:
+Titel, vollständiger Code und Erklärung erscheinen als eine semantische Einheit.
+Der Code wird nicht nochmals in der Vertiefung dupliziert. Im simulierten
+Brillendisplay lässt sich eine solche Einheit vertikal scrollen; der horizontale
+Kartenwechsel führt zur nächsten beziehungsweise vorherigen Einheit. Ältere
+Antworten mit einem einzelnen Codeblock verwenden weiterhin die paginierten
+Codekarten.
+
 Der lokale Verlauf enthält ausschließlich Frage und Antwort. Einzelne Einträge
 oder der gesamte Verlauf lassen sich löschen. **Bild und Sitzungskontext löschen**
 entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.

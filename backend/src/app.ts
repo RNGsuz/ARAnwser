@@ -178,8 +178,9 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
     app.log.error({ err: error }, "request failed");
     const status = error.statusCode && error.statusCode < 500 ? error.statusCode : 502;
+    const knownAiError = error.message === "ai_response_incomplete" || error.message === "ai_response_invalid";
     reply.code(status).send({
-      error: status === 502 ? "ai_service_unavailable" : error.message,
+      error: status === 502 ? (knownAiError ? error.message : "ai_service_unavailable") : error.message,
       requestStage: status >= 500 ? "ai" : "request",
     });
   });

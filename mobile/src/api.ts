@@ -24,6 +24,8 @@ async function readResponse<T>(response: Response): Promise<T> {
     daily_limit_reached: 'Das tägliche Testlimit ist erreicht.',
     session_expired: 'Das Foto ist abgelaufen. Bitte fotografiere es erneut.',
     ai_service_unavailable: 'Der KI-Dienst ist gerade nicht erreichbar.',
+    ai_response_incomplete: 'Die KI-Antwort war zu lang und wurde abgeschnitten. Bitte versuche es erneut oder frage nach einem kleineren Ausschnitt.',
+    ai_response_invalid: 'Die KI-Antwort hatte ein ungültiges Format. Bitte versuche es erneut.',
     unauthorized: 'Client-Token und Backend-Konfiguration stimmen nicht überein.',
     valid_image_required: 'Das Foto konnte nicht gelesen werden. Bitte nimm es erneut auf.',
     image_too_large: 'Das Foto ist zu groß. Bitte nimm es erneut auf.',

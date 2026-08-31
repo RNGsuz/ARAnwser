@@ -12,9 +12,9 @@ import {
 import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, transcribeAudio } from './src/api';
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings } from './src/settings';
-import type { AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep } from './src/types';
+import type { AnswerBlock, AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep } from './src/types';
 import { AnswerContent } from './src/AnswerContent';
-import { buildGlassesCards, type GlassesCard } from './src/glasses';
+import { buildGlassesCards, wrapCode, type GlassesCard } from './src/glasses';
 
 const labels: Record<AssistantState, string> = {
   idle: 'Bereit', camera: 'Kamera bereit', capturing: 'Foto wird aufgenommen …', captured: 'Foto bereit', listening: 'Ich höre zu …', reviewing: 'Frage prüfen',
@@ -369,7 +369,7 @@ export default function App() {
                 <View style={styles.answerWorkspace}>
                   <GlassesDisplay state={state} answer={answer} error={null} />
                   <GuidedSolutionView solution={answer.solution} />
-                  <View style={styles.answerPanel}><Text style={styles.sectionLabel}>{answer.solution?.steps.length ? 'VERTIEFUNG' : 'AUSFÜHRLICHE ANTWORT'}</Text><AnswerContent blocks={answer.blocks} fallback={answer.spokenAnswer} /><View style={styles.answerMeta}><Text style={styles.confidence}>Sicherheit {Math.round(answer.confidence * 100)} %</Text><Pressable onPress={() => speakThroughMediaOutput(answer.spokenAnswer)}><Text style={styles.speakAction}>▶ Vorlesen</Text></Pressable></View></View>
+                  <DetailedAnswerView answer={answer} showMeta />
                   <View style={styles.followUpCard}><Text style={styles.sectionLabel}>FOLGEFRAGE</Text><View style={styles.followUpRow}><TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Was möchtest du noch wissen?" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" /><Pressable style={styles.voiceFollowUpButton} onPress={() => startVoiceFollowUp()} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable><Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable></View></View>
                   <View style={styles.answerActions}><Pressable style={styles.secondaryButton} onPress={openCamera}><Text style={styles.secondaryButtonText}>Neues Dokument</Text></Pressable><Pressable style={styles.secondaryButton} onPress={() => startGeneralQuestion()}><Text style={styles.secondaryButtonText}>Neue Frage</Text></Pressable></View>
                   <Pressable onPress={cancel}><Text style={styles.destructiveAction}>{photoUri ? 'Bild und Kontext löschen' : 'Sitzungskontext löschen'}</Text></Pressable>
@@ -466,6 +466,28 @@ function solutionStepBlocks(step: SolutionStep) {
   return [{ type: 'text' as const, markdown: step.content }];
 }
 
+function supplementaryBlocks(answer: Pick<DocumentAnswer, 'blocks' | 'solution'>): AnswerBlock[] | undefined {
+  if (!answer.solution?.steps.some((step) => step.contentType === 'code')) return answer.blocks;
+  const withoutRepeatedCode = answer.blocks?.filter((block) => block.type !== 'code');
+  return withoutRepeatedCode?.length ? withoutRepeatedCode : undefined;
+}
+
+function DetailedAnswerView({ answer, showMeta = false }: {
+  answer: Pick<DocumentAnswer, 'blocks' | 'solution' | 'spokenAnswer' | 'confidence'>;
+  showMeta?: boolean;
+}) {
+  const hasCodeUnits = answer.solution?.steps.some((step) => step.contentType === 'code') ?? false;
+  const blocks = supplementaryBlocks(answer);
+  const showContent = !hasCodeUnits || Boolean(blocks?.length);
+  if (!showContent && !showMeta) return null;
+  return (
+    <View style={styles.answerPanel}>
+      {showContent ? <><Text style={styles.sectionLabel}>{answer.solution?.steps.length ? 'VERTIEFUNG' : 'AUSFÜHRLICHE ANTWORT'}</Text><AnswerContent blocks={blocks} fallback={answer.spokenAnswer} /></> : null}
+      {showMeta ? <View style={[styles.answerMeta, !showContent && styles.answerMetaOnly]}><Text style={styles.confidence}>Sicherheit {Math.round(answer.confidence * 100)} %</Text><Pressable onPress={() => speakThroughMediaOutput(answer.spokenAnswer)}><Text style={styles.speakAction}>▶ Vorlesen</Text></Pressable></View> : null}
+    </View>
+  );
+}
+
 function GuidedSolutionView({ solution }: { solution?: GuidedSolution }) {
   if (!solution?.steps.length) return null;
   return (
@@ -486,6 +508,7 @@ function GlassesDisplay({ state, answer, error }: { state: AssistantState; answe
   const cards = useMemo(() => answer ? buildGlassesCards(answer) : [], [answer]);
   const [cardIndex, setCardIndex] = useState(0);
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
   const longPressed = useRef(false);
 
   useEffect(() => setCardIndex(0), [answer?.queryId]);
@@ -503,15 +526,17 @@ function GlassesDisplay({ state, answer, error }: { state: AssistantState; answe
     <View style={styles.glassesArea}>
       <Pressable
         style={styles.glasses}
-        onTouchStart={(event) => { touchStartX.current = event.nativeEvent.pageX; longPressed.current = false; }}
+        onTouchStart={(event) => { touchStartX.current = event.nativeEvent.pageX; touchStartY.current = event.nativeEvent.pageY; longPressed.current = false; }}
         onTouchEnd={(event) => {
           if (longPressed.current) return;
-          const distance = event.nativeEvent.pageX - touchStartX.current;
-          if (distance > 35) previousCard();
+          const distanceX = event.nativeEvent.pageX - touchStartX.current;
+          const distanceY = event.nativeEvent.pageY - touchStartY.current;
+          if (Math.abs(distanceY) > 8 && Math.abs(distanceY) > Math.abs(distanceX)) return;
+          if (distanceX > 35) previousCard();
           else nextCard();
         }}
         onLongPress={() => { longPressed.current = true; setCardIndex(0); }}
-        accessibilityLabel="Simuliertes Brillendisplay. Tippen für nächste Karte, nach rechts wischen für zurück."
+        accessibilityLabel="Simuliertes Brillendisplay. Tippen für nächste Karte, nach rechts wischen für zurück, innerhalb von Code vertikal scrollen."
       >
         <View style={styles.displayHeader}><Text style={styles.displayLabel}>BRILLENDISPLAY · {card?.title || 'STATUS'}</Text>{cards.length > 1 ? <Text style={styles.displayProgress}>{cardIndex + 1} / {cards.length}</Text> : null}</View>
         {error ? <Text style={styles.displayAnswer}>{error}</Text> : answer && state === 'answer' && card ? <GlassesCardContent card={card} /> : <Text style={styles.displayAnswer}>{labels[state]}</Text>}
@@ -523,6 +548,10 @@ function GlassesDisplay({ state, answer, error }: { state: AssistantState; answe
 
 function GlassesCardContent({ card }: { card: GlassesCard }) {
   if (card.type === 'summary') return <View><View style={styles.displaySummaryLines}>{card.lines.map((line, index) => <Text key={`${index}-${line}`} style={card.format === 'output' ? styles.displayOutputLine : styles.displayAnswer}>{line}</Text>)}</View>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
+  if (card.type === 'step' && card.step.contentType === 'code') {
+    const lines = wrapCode(card.step.content);
+    return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><ScrollView style={styles.displayCodeScroll} nestedScrollEnabled showsVerticalScrollIndicator>{lines.map((line, index) => <View style={styles.displayCodeRow} key={`${line.sourceLine}-${index}`}><Text style={styles.displayLineNumber}>{line.continuation ? '↳' : String(line.sourceLine).padStart(2, '0')}</Text><Text style={styles.displayCodeText}>{line.text}</Text></View>)}</ScrollView><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
+  }
   if (card.type === 'step') return <View style={styles.displayStep}><Text style={styles.displayStepTitle}>{card.step.title}</Text><AnswerContent blocks={solutionStepBlocks(card.step)} fallback={card.step.content} compact /><Text style={styles.displayStepExplanation} numberOfLines={2}>{card.step.explanation}</Text></View>;
   if (card.type === 'math') return <AnswerContent blocks={[card.block]} fallback="" compact />;
   if (card.type === 'note') return <Text style={styles.displayEvidence}>{card.text}</Text>;
@@ -552,7 +581,7 @@ function HistoryScreen({ entries, selected, onSelect, onDelete, onClear }: {
         <Text style={styles.eyebrow}>GESPEICHERTE ANTWORT</Text>
         <Text style={styles.historyDetailQuestion}>{selected.question}</Text>
         <GuidedSolutionView solution={selected.solution} />
-        <View style={styles.answerPanel}><Text style={styles.sectionLabel}>{selected.solution?.steps.length ? 'VERTIEFUNG' : 'ANTWORT'}</Text><AnswerContent blocks={selected.blocks} fallback={selected.spokenAnswer} /></View>
+        <DetailedAnswerView answer={selected} />
         <Pressable onPress={() => speakThroughMediaOutput(selected.spokenAnswer)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Antwort vorlesen</Text></Pressable>
         <Pressable onPress={() => Alert.alert('Eintrag löschen?', 'Das lässt sich nicht rückgängig machen.', [{ text: 'Abbrechen' }, { text: 'Löschen', style: 'destructive', onPress: () => onDelete(selected.createdAt) }])}><Text style={styles.destructiveAction}>Eintrag löschen</Text></Pressable>
       </ScrollView>
@@ -589,7 +618,7 @@ const styles = StyleSheet.create({
   glassesArea: { gap: 9 }, glasses: { minHeight: 220, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 20, gap: 18, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
   displayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, displayLabel: { color: '#3e9b5c', fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, displayProgress: { color: '#70ff9b', fontSize: 10, fontWeight: '900' }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displaySummaryLines: { gap: 4 }, displayOutputLine: { color: '#70ff9b', fontFamily: 'monospace', fontSize: 19, lineHeight: 24, fontWeight: '700' },
-  displayStep: { gap: 7 }, displayStepTitle: { color: '#ffda77', fontSize: 15, lineHeight: 19, fontWeight: '900' }, displayStepExplanation: { color: '#9fc9aa', fontSize: 12, lineHeight: 16 },
+  displayStep: { gap: 7 }, displayStepTitle: { color: '#ffda77', fontSize: 15, lineHeight: 19, fontWeight: '900' }, displayStepExplanation: { color: '#9fc9aa', fontSize: 12, lineHeight: 16 }, displayCodeScroll: { maxHeight: 112 },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   displayCode: { gap: 3 }, displayCodeRow: { flexDirection: 'row', gap: 7 }, displayLineNumber: { width: 20, color: '#438f5a', fontFamily: 'monospace', fontSize: 11, lineHeight: 17, textAlign: 'right' }, displayCodeText: { flex: 1, color: '#aaffbf', fontFamily: 'monospace', fontSize: 11, lineHeight: 17 }, displayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }, displayNavText: { color: '#70ff9b', fontSize: 12, fontWeight: '800', padding: 7 }, displayNavDisabled: { color: '#35463b' }, displayNavHint: { color: '#5e7065', fontSize: 10 },
   primaryButton: { backgroundColor: '#55ed80', minHeight: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }, stopButton: { backgroundColor: '#ff686d' }, retakeButton: { backgroundColor: '#ffda77' }, primaryButtonText: { color: '#07100c', fontSize: 16, fontWeight: '800' },
@@ -612,6 +641,6 @@ const styles = StyleSheet.create({
   previewWorkspace: { gap: 12 }, previewImage: { width: '100%', height: 250, borderRadius: 24, backgroundColor: '#111' }, sectionLabel: { color: '#70ff9b', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 }, actionCard: { minHeight: 70, borderRadius: 18, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#111d16', borderWidth: 1, borderColor: '#293b30' }, actionCardIcon: { width: 30, color: '#70ff9b', fontSize: 18, fontWeight: '900' }, recordIcon: { color: '#ff7176' }, actionCardTitle: { color: '#effaf2', fontSize: 15, fontWeight: '800' }, textAction: { color: '#9fb0a6', fontSize: 14, fontWeight: '700', textAlign: 'center', padding: 12 },
   focusCard: { minHeight: 330, borderRadius: 28, backgroundColor: '#101b14', borderWidth: 1, borderColor: '#26372d', padding: 24, gap: 14, alignItems: 'center', justifyContent: 'center' }, listeningPulse: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#32191d', borderWidth: 1, borderColor: '#6d3037', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }, listeningDot: { color: '#ff646b', fontSize: 32 }, focusTitle: { color: '#f3fff7', fontSize: 27, fontWeight: '900' }, focusCopy: { color: '#92a299', fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 310 },
   errorCard: { borderRadius: 24, backgroundColor: '#251517', borderWidth: 1, borderColor: '#653237', padding: 20, gap: 15 }, errorLabel: { color: '#ff7a80', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 }, errorText: { color: '#f4e8e9', fontSize: 17, lineHeight: 25 },
-  answerWorkspace: { gap: 15 }, answerMeta: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, speakAction: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, followUpCard: { borderRadius: 20, backgroundColor: '#0d1812', borderWidth: 1, borderColor: '#26372d', padding: 15, gap: 11 }, answerActions: { flexDirection: 'row', gap: 10 }, destructiveAction: { color: '#d9787d', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 12 },
+  answerWorkspace: { gap: 15 }, answerMeta: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, answerMetaOnly: { borderTopWidth: 0, paddingTop: 0 }, speakAction: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, followUpCard: { borderRadius: 20, backgroundColor: '#0d1812', borderWidth: 1, borderColor: '#26372d', padding: 15, gap: 11 }, answerActions: { flexDirection: 'row', gap: 10 }, destructiveAction: { color: '#d9787d', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 12 },
   backAction: { color: '#70ff9b', fontSize: 16, fontWeight: '800', paddingVertical: 5 }, historyDetailQuestion: { color: '#f3fff7', fontSize: 25, lineHeight: 32, fontWeight: '900' }, historyOpen: { color: '#70ff9b', fontSize: 12, fontWeight: '800', paddingTop: 5 }, emptyState: { minHeight: 240, alignItems: 'center', justifyContent: 'center', gap: 8 }, emptyTitle: { color: '#effaf2', fontSize: 20, fontWeight: '800' },
 });
