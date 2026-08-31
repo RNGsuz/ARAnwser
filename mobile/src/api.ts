@@ -67,7 +67,7 @@ async function request(url: string, init: RequestInit): Promise<Response> {
 export async function createQuery(
   imageUri: string,
   sessionId: string,
-  options: { audioUri?: string; question?: string },
+  options: { audioUri?: string; question?: string; includeSteps?: boolean },
 ): Promise<DocumentAnswer> {
   if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
   const form = new FormData();
@@ -78,35 +78,37 @@ export async function createQuery(
   if (options.question) form.append('question', options.question);
   form.append('sessionId', sessionId);
   form.append('locale', 'de-DE');
+  form.append('includeSteps', String(options.includeSteps ?? true));
   const response = await request(`${baseUrl}/v1/queries`, { method: 'POST', headers: headers(), body: form });
   return readResponse(response);
 }
 
-export async function createFollowUp(sessionId: string, question: string): Promise<DocumentAnswer> {
+export async function createFollowUp(sessionId: string, question: string, includeSteps = true): Promise<DocumentAnswer> {
   if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
   const response = await request(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
     method: 'POST',
     headers: headers(true),
-    body: JSON.stringify({ question, locale: 'de-DE' }),
+    body: JSON.stringify({ question, locale: 'de-DE', includeSteps }),
   });
   return readResponse(response);
 }
 
-export async function createGeneralQuestion(sessionId: string, question: string): Promise<DocumentAnswer> {
+export async function createGeneralQuestion(sessionId: string, question: string, includeSteps = true): Promise<DocumentAnswer> {
   if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
   const response = await request(`${baseUrl}/v1/questions`, {
     method: 'POST',
     headers: headers(true),
-    body: JSON.stringify({ question, sessionId, locale: 'de-DE' }),
+    body: JSON.stringify({ question, sessionId, locale: 'de-DE', includeSteps }),
   });
   return readResponse(response);
 }
 
-export async function createVoiceFollowUp(sessionId: string, audioUri: string): Promise<DocumentAnswer> {
+export async function createVoiceFollowUp(sessionId: string, audioUri: string, includeSteps = true): Promise<DocumentAnswer> {
   if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
   const form = new FormData();
   form.append('audio', { uri: audioUri, name: 'follow-up.m4a', type: 'audio/mp4' } as unknown as Blob);
   form.append('locale', 'de-DE');
+  form.append('includeSteps', String(includeSteps));
   const response = await request(`${baseUrl}/v1/queries/${encodeURIComponent(sessionId)}/follow-ups`, {
     method: 'POST', headers: headers(), body: form,
   });

@@ -35,6 +35,7 @@ export class SessionStore {
       ...(session.ocrText ? { ocrText: session.ocrText } : {}),
       ...(session.previousQuestion ? { previousQuestion: session.previousQuestion } : {}),
       ...(session.previousAnswer ? { previousAnswer: session.previousAnswer } : {}),
+      ...(session.includeSteps !== undefined ? { includeSteps: session.includeSteps } : {}),
       question: session.question,
       locale: session.locale,
     };

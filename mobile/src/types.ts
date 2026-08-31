@@ -28,12 +28,28 @@ export interface GuidedSolution {
   steps: SolutionStep[];
 }
 
+export interface GlassesExercise {
+  label: string;
+  labelSource: 'document' | 'generated';
+  sourceLatex: string;
+  resultLatex: string;
+  transformations: Array<{ latex: string; operation: string | null }>;
+}
+
+export interface RecognizedItem {
+  label: string;
+  labelSource: 'document' | 'generated';
+  sourceLatex: string;
+}
+
 export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
   question: string;
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
+  glassesExercises?: GlassesExercise[];
+  recognizedItems?: RecognizedItem[];
   solution?: GuidedSolution;
   spokenAnswer: string;
   evidence: string[];
@@ -47,6 +63,8 @@ export interface HistoryEntry {
   question: string;
   shortAnswer: string;
   glassesSummary?: { format: 'text' | 'output'; lines: string[] };
+  glassesExercises?: GlassesExercise[];
+  recognizedItems?: RecognizedItem[];
   solution?: GuidedSolution;
   spokenAnswer: string;
   confidence: number;

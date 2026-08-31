@@ -78,13 +78,19 @@ fünf Displayzeilen pro Karte umgebrochen und behält seine ursprünglichen
 Zeilennummern. Dadurch funktionieren Folgefragen wie „Erkläre Zeile 8“ mit dem
 vollständigen flüchtigen Codekontext.
 
-Antworten folgen einer progressiven Lernstruktur: zuerst das eindeutige Ergebnis,
-danach höchstens acht nachvollziehbare Einzelschritte und zuletzt Vertiefung und
-Belege. Bei Mathematik ist ein Schritt eine Umformung, bei Code eine relevante
-Ablauf- oder Denkstufe, bei Dokumenten der Weg von der Fundstelle zur
-Interpretation und bei Theorie von der Kernaussage zur Begründung. Auf der Brille
-belegt jeder Lernschritt eine eigene Karte. Wenn eine direkte Antwort verständlicher
-ist, werden keine künstlichen Schritte erzeugt.
+Die Brillenausgabe ist der primäre Antwortvertrag. Bei fotografierter Mathematik
+steht zuerst die kompakte Ergebnisübersicht. Danach folgt – sofern in den
+Einstellungen aktiviert – eine kompakte Karte je original beschrifteter Aufgabe
+mit genau einem mathematischen Zustand pro Zeile und einer kurzen Operation.
+Zuletzt bestätigt **Erkannt** alle gelösten Ausgangsaufgaben. Sichtbare Labels wie
+`a)`, `150)`, `Frage 2)` oder `Aufgabe 7a` bleiben unverändert und in
+Dokumentreihenfolge; nur unbeschriftete Aufgaben erhalten ein erzeugtes Label.
+Generische Formel- und „Warum?“-Karten werden für diese strukturierten
+Matheantworten nicht zusätzlich erzeugt.
+
+Die ausführliche Smartphone-Antwort ist als **Details / Diagnose** standardmäßig
+eingeklappt. Sie bleibt für Kontrolle und spätere Verbesserung verfügbar, ist
+aber gegenüber der Brillenansicht zweitrangig.
 
 Bei Implementierungsaufgaben bleibt jede Methode, Klasse oder Testeinheit zusammen:
 Titel, vollständiger Code und Erklärung erscheinen als eine semantische Einheit.
@@ -108,13 +114,14 @@ entfernt den aktuellen flüchtigen Bildkontext sofort vom Backend.
 ## API
 
 - `POST /v1/queries`: multipart mit `image`, optional `audio`, `question`,
-  `ocrText`, `locale` und `sessionId`.
-- `POST /v1/questions`: JSON mit `question`, `locale` und optional `sessionId`
+  `ocrText`, `locale`, `sessionId` und `includeSteps`.
+- `POST /v1/questions`: JSON mit `question`, `locale`, `includeSteps` und optional `sessionId`
   für allgemeine Fragen ohne Foto.
 - `POST /v1/transcriptions`: multipart mit `audio`; liefert die editierbare
   Textvorschau vor der eigentlichen Anfrage.
-- `POST /v1/queries/:id/follow-ups`: JSON mit `question` und optional `locale`
-  oder multipart mit `audio` und `locale` für gesprochene Folgefragen.
+- `POST /v1/queries/:id/follow-ups`: JSON mit `question`, optional `locale` und
+  `includeSteps` oder multipart mit `audio`, `locale` und `includeSteps` für
+  gesprochene Folgefragen.
 - `DELETE /v1/sessions/:id`: entfernt Bild und Sitzung sofort.
 
 Wenn `CLIENT_TOKEN` gesetzt ist, muss der Client `Authorization: Bearer …`

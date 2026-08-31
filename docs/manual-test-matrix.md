@@ -28,8 +28,18 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
 - Formeln mit `\\frac`, `\\sum`, `\\int`, `\\sqrt`, Hoch-/Tiefstellungen und
   einer Matrix prüfen. Mehrzeilige `aligned`-Formeln dürfen keine sichtbaren
   LaTeX-Befehle wie `beginaligned` enthalten.
-- Bei Mathematik prüfen: Ergebnis zuerst, danach eine Umformung pro Schritt und
-  abschließend die Vertiefung.
+- Mathefotos mit Labels `a)`, `1)`, `150)`, `Frage 2)` und `Aufgabe 7a` prüfen:
+  Labels müssen in Ergebnis, Lösungsweg und **Erkannt** exakt erhalten bleiben.
+- Bei aktiviertem **Lösungsweg anzeigen** prüfen: Ergebnis zuerst, anschließend
+  eine kompakte Aufgabenkarte je Teilaufgabe mit einem Zustand pro Zeile und
+  zuletzt **Erkannt** mit allen gelösten Ausgangsaufgaben.
+- Bei deaktiviertem Lösungsweg dürfen nur Ergebnis und **Erkannt** erscheinen;
+  keine Lösungsweg-, allgemeine Formel- oder „Warum?“-Karte.
+- Operationen wie `ausmult.`, `−20x²` oder `÷(−7)` müssen eindeutig neben dem
+  zugehörigen neuen Zustand stehen; mehrere Zustände dürfen nicht mit `⇒` in
+  eine Zeile gepresst werden.
+- `\\boxed`, `beginaligned` und andere rohe LaTeX-Befehle dürfen im Display nicht
+  sichtbar sein.
 - Bei Code prüfen: Ausgabe beziehungsweise Resultat zuerst, danach relevante
   Ablaufstufen; bei Dokumenten Fundstelle vor Interpretation anzeigen.
 - Eine Aufgabe mit mindestens drei Methoden prüfen: Jede Methode muss mit ihrem
@@ -47,6 +57,8 @@ prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
   Wissensfragen dürfen ohne künstlichen Lösungsweg antworten.
 - Kontrollieren, dass TTS verständlichen Text statt roher LaTeX-Befehle vorliest.
 - Neue strukturierte und alte reine Textantworten aus dem Verlauf öffnen.
+- Ausführliche Smartphone-Inhalte müssen unter **Details / Diagnose** zunächst
+  eingeklappt sein und sich weiterhin öffnen lassen.
 - Lernschritte müssen nach dem Speichern im Verlauf erhalten bleiben.
 - Kompakte Code- beziehungsweise Formelkarte im simulierten Brillendisplay prüfen.
 - Bei einer längeren Codeantwort kontrollieren: Kurzantwort zuerst, Hinweis

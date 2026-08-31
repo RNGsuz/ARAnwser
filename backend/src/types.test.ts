@@ -6,7 +6,9 @@ describe("structured answer schema", () => {
   it("accepts ordered text, code, and math blocks", () => {
     const result = answerSchema.parse({
       shortAnswer: "Drei Darstellungen",
-      glassesSummary: { format: "output", lines: ["a) 7", "b) \"ABC\""] },
+      glassesSummary: { format: "output", lines: ["Frage 150) 3", "b) \"ABC\""] },
+      glassesExercises: [{ label: "Frage 150)", labelSource: "document", sourceLatex: "1+2", resultLatex: "3", transformations: [{ latex: "1+2", operation: null }, { latex: "3", operation: "addieren" }] }],
+      recognizedItems: [{ label: "Frage 150)", labelSource: "document", sourceLatex: "1+2" }],
       solution: { kind: "math", title: "Lösungsweg", steps: [{ title: "Summieren", explanation: "Die Terme werden addiert.", contentType: "math", content: "1 + 2 = 3", language: null }] },
       spokenAnswer: "Die Antwort enthält erklärenden Text, Programmcode und eine mathematische Formel.",
       evidence: [],
@@ -20,13 +22,16 @@ describe("structured answer schema", () => {
       ],
     });
     expect(result.blocks.map((block) => block.type)).toEqual(["text", "code", "math"]);
-    expect(result.glassesSummary.lines).toEqual(["a) 7", "b) \"ABC\""]);
+    expect(result.glassesSummary.lines).toEqual(["Frage 150) 3", "b) \"ABC\""]);
+    expect(result.glassesExercises[0]?.label).toBe("Frage 150)");
   });
 
   it("rejects an unknown display block", () => {
     expect(() => answerSchema.parse({
       shortAnswer: "Test",
       glassesSummary: { format: "text", lines: ["Test"] },
+      glassesExercises: [],
+      recognizedItems: [],
       solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
@@ -41,6 +46,8 @@ describe("structured answer schema", () => {
     expect(() => answerSchema.parse({
       shortAnswer: "Test",
       glassesSummary: { format: "output", lines: [] },
+      glassesExercises: [],
+      recognizedItems: [],
       solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
@@ -62,6 +69,8 @@ describe("structured answer schema", () => {
     const result = answerSchema.parse({
       shortAnswer: "Methode implementiert",
       glassesSummary: { format: "text", lines: ["sum(...) implementiert"] },
+      glassesExercises: [],
+      recognizedItems: [],
       solution: { kind: "code", title: "Implementierung", steps: [{ title: "sum", explanation: "Summiert die Werte.", contentType: "code", content: method, language: "java" }] },
       spokenAnswer: "Die Methode summiert alle Werte.", evidence: [], confidence: 1,
       needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Die Laufzeit ist linear." }],

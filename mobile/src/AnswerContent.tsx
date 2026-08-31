@@ -34,6 +34,8 @@ function script(value: string, table: Record<string, string>, marker: string): s
 
 function readableLatex(value: string): string {
   let result = value
+    .replace(/\\boxed\{([^{}]*)\}/g, '$1')
+    .replace(/\\displaystyle/g, '')
     .replace(/\\begin\{(?:aligned\*?|align\*?|equation\*?)\}/g, '')
     .replace(/\\end\{(?:aligned\*?|align\*?|equation\*?)\}/g, '')
     .replace(/\\left|\\right/g, '')
@@ -64,18 +66,18 @@ function findClosingBrace(value: string, start: number): number {
   return -1;
 }
 
-function MathExpression({ latex, compact = false }: { latex: string; compact?: boolean }) {
+function MathExpression({ latex, compact = false, dense = false }: { latex: string; compact?: boolean; dense?: boolean }) {
   const parts: ReactNode[] = [];
   let cursor = 0;
   let key = 0;
   while (cursor < latex.length) {
     const fractionStart = latex.indexOf('\\frac{', cursor);
     if (fractionStart < 0) {
-      parts.push(<Text style={[styles.mathText, compact && styles.mathTextCompact]} key={key++}>{readableLatex(latex.slice(cursor))}</Text>);
+      parts.push(<Text style={[styles.mathText, compact && styles.mathTextCompact, dense && styles.mathTextDense]} key={key++}>{readableLatex(latex.slice(cursor))}</Text>);
       break;
     }
     if (fractionStart > cursor) {
-      parts.push(<Text style={[styles.mathText, compact && styles.mathTextCompact]} key={key++}>{readableLatex(latex.slice(cursor, fractionStart))}</Text>);
+      parts.push(<Text style={[styles.mathText, compact && styles.mathTextCompact, dense && styles.mathTextDense]} key={key++}>{readableLatex(latex.slice(cursor, fractionStart))}</Text>);
     }
     const numeratorStart = fractionStart + 5;
     const numeratorEnd = findClosingBrace(latex, numeratorStart);
@@ -88,14 +90,18 @@ function MathExpression({ latex, compact = false }: { latex: string; compact?: b
     if (denominatorEnd < 0) break;
     parts.push(
       <View style={styles.fraction} key={key++}>
-        <Text style={[styles.fractionText, compact && styles.fractionTextCompact]}>{readableLatex(latex.slice(numeratorStart + 1, numeratorEnd))}</Text>
+        <Text style={[styles.fractionText, compact && styles.fractionTextCompact, dense && styles.fractionTextDense]}>{readableLatex(latex.slice(numeratorStart + 1, numeratorEnd))}</Text>
         <View style={styles.fractionLine} />
-        <Text style={[styles.fractionText, compact && styles.fractionTextCompact]}>{readableLatex(latex.slice(denominatorStart + 1, denominatorEnd))}</Text>
+        <Text style={[styles.fractionText, compact && styles.fractionTextCompact, dense && styles.fractionTextDense]}>{readableLatex(latex.slice(denominatorStart + 1, denominatorEnd))}</Text>
       </View>,
     );
     cursor = denominatorEnd + 1;
   }
   return <View style={styles.mathRow}>{parts}</View>;
+}
+
+export function MathLine({ latex, compact = true, dense = false }: { latex: string; compact?: boolean; dense?: boolean }) {
+  return <MathExpression latex={latex} compact={compact} dense={dense} />;
 }
 
 function MathBlock({ latex, compact = false }: { latex: string; compact?: boolean }) {
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
   headingLarge: { color: '#f3fff7', fontSize: 22, lineHeight: 28, fontWeight: '900' }, heading: { color: '#effaf2', fontSize: 19, lineHeight: 25, fontWeight: '800' }, headingSmall: { color: '#dce9e0', fontSize: 16, lineHeight: 22, fontWeight: '800' },
   bulletRow: { flexDirection: 'row', gap: 9, paddingRight: 12 }, bullet: { minWidth: 18, color: '#70ff9b', fontSize: 16, lineHeight: 24, fontWeight: '800' },
   codeCard: { borderRadius: 16, backgroundColor: '#050a07', borderWidth: 1, borderColor: '#293a30', overflow: 'hidden' }, codeLanguage: { color: '#70ff9b', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, paddingHorizontal: 14, paddingTop: 11 }, code: { color: '#d8e6dc', fontFamily: 'monospace', fontSize: 14, lineHeight: 21, padding: 14 }, codeCompact: { fontSize: 12, lineHeight: 17, paddingTop: 9 },
-  mathCard: { minHeight: 66, borderRadius: 16, backgroundColor: '#0a1710', borderWidth: 1, borderColor: '#31503b', padding: 14, alignItems: 'center', justifyContent: 'center' }, alignedMath: { gap: 5 }, compactCard: { minHeight: 48, padding: 9 }, mathRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 4 }, mathText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 24, lineHeight: 34 }, mathTextCompact: { fontSize: 19, lineHeight: 26 },
-  fraction: { minWidth: 28, alignItems: 'stretch', marginHorizontal: 3 }, fractionText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 18, textAlign: 'center', paddingHorizontal: 3 }, fractionTextCompact: { fontSize: 14 }, fractionLine: { height: 1.5, backgroundColor: '#e9fff0', marginVertical: 2 },
+  mathCard: { minHeight: 66, borderRadius: 16, backgroundColor: '#0a1710', borderWidth: 1, borderColor: '#31503b', padding: 14, alignItems: 'center', justifyContent: 'center' }, alignedMath: { gap: 5 }, compactCard: { minHeight: 48, padding: 9 }, mathRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 4 }, mathText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 24, lineHeight: 34 }, mathTextCompact: { fontSize: 19, lineHeight: 26 }, mathTextDense: { fontSize: 15, lineHeight: 20 },
+  fraction: { minWidth: 28, alignItems: 'stretch', marginHorizontal: 3 }, fractionText: { color: '#e9fff0', fontFamily: 'serif', fontSize: 18, textAlign: 'center', paddingHorizontal: 3 }, fractionTextCompact: { fontSize: 14 }, fractionTextDense: { fontSize: 11 }, fractionLine: { height: 1.5, backgroundColor: '#e9fff0', marginVertical: 2 },
   matrix: { borderLeftWidth: 2, borderRightWidth: 2, borderColor: '#bdf8cc', paddingHorizontal: 8, gap: 4 }, matrixRow: { flexDirection: 'row' }, matrixCell: { minWidth: 42, color: '#e9fff0', fontFamily: 'serif', fontSize: 19, textAlign: 'center' },
 });

@@ -13,7 +13,7 @@ import { createFollowUp, createGeneralQuestion, createQuery, deleteSession, tran
 import { clearHistory, deleteHistoryEntry, loadHistory, saveAnswer } from './src/history';
 import { defaultSettings, loadSettings, saveSettings, type AppSettings, type CodeScrollMode } from './src/settings';
 import type { AnswerBlock, AssistantState, DocumentAnswer, GuidedSolution, HistoryEntry, SolutionStep } from './src/types';
-import { AnswerContent } from './src/AnswerContent';
+import { AnswerContent, MathLine } from './src/AnswerContent';
 import { buildGlassesCards, wrapCode, type GlassesCard } from './src/glasses';
 
 const labels: Record<AssistantState, string> = {
@@ -50,6 +50,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'assistant' | 'history' | 'settings'>('assistant');
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [pageScrollEnabled, setPageScrollEnabled] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const handleCodeInteractionChange = useCallback((active: boolean) => setPageScrollEnabled(!active), []);
 
   useEffect(() => {
@@ -57,6 +58,8 @@ export default function App() {
     loadSettings().then(setSettings).catch(() => undefined);
     return () => { Speech.stop(); };
   }, []);
+
+  useEffect(() => setShowDiagnostics(false), [answer?.queryId]);
 
   async function openCamera() {
     try {
@@ -153,6 +156,7 @@ export default function App() {
   ) {
     if (!imageUri || (!fromCapture && state !== 'captured')) return;
     const action = () => createQuery(imageUri, targetSession, {
+      includeSteps: settings.explainSteps,
       question: mode === 'read'
         ? 'Was steht auf dem Bild? Gib den deutlich lesbaren Hauptinhalt knapp und originalgetreu wieder. Löse oder interpretiere keine Aufgabe, außer es ist zum Verständnis nötig.'
         : settings.explainSteps
@@ -197,10 +201,10 @@ export default function App() {
     if (!question || (recordingPurpose === 'query' && !photoUri)) return;
     setPendingTranscript('');
     const action = () => recordingPurpose === 'followUp'
-      ? createFollowUp(currentSession, question)
+      ? createFollowUp(currentSession, question, settings.explainSteps)
       : recordingPurpose === 'general'
-        ? createGeneralQuestion(currentSession, question)
-        : createQuery(photoUri as string, currentSession, { question });
+        ? createGeneralQuestion(currentSession, question, settings.explainSteps)
+        : createQuery(photoUri as string, currentSession, { question, includeSteps: settings.explainSteps });
     retryAction.current = () => executeRequest(action);
     await executeRequest(action);
   }
@@ -216,7 +220,7 @@ export default function App() {
     const question = followUp.trim();
     if (!question || !answer) return;
     setFollowUp('');
-    const action = () => createFollowUp(currentSession, question);
+    const action = () => createFollowUp(currentSession, question, settings.explainSteps);
     retryAction.current = () => executeRequest(action);
     await executeRequest(action);
   }
@@ -370,8 +374,8 @@ export default function App() {
               answer.needsRetake ? <View style={styles.retakePanel}><Text style={styles.retakeTitle}>Aufnahme nicht sicher lesbar</Text><Text style={styles.answerText}>{answer.retakeHint || answer.spokenAnswer}</Text><Text style={styles.retakePrivacy}>Dieses Foto wird nicht im Verlauf gespeichert.</Text><Pressable style={[styles.primaryButton, styles.retakeButton]} onPress={openCamera}><Text style={styles.primaryButtonText}>Foto erneut aufnehmen</Text></Pressable></View> : (
                 <View style={styles.answerWorkspace}>
                   <GlassesDisplay state={state} answer={answer} error={null} codeScrollMode={settings.codeScrollMode} onCodeInteractionChange={handleCodeInteractionChange} />
-                  <GuidedSolutionView solution={answer.solution} />
-                  <DetailedAnswerView answer={answer} showMeta />
+                  <Pressable style={styles.diagnosticsToggle} onPress={() => setShowDiagnostics((visible) => !visible)}><View><Text style={styles.diagnosticsTitle}>Details / Diagnose</Text><Text style={styles.diagnosticsDescription}>Ausführliche Smartphone-Antwort zur Kontrolle</Text></View><Text style={styles.diagnosticsArrow}>{showDiagnostics ? '⌃' : '⌄'}</Text></Pressable>
+                  {showDiagnostics ? <><GuidedSolutionView solution={answer.solution} /><DetailedAnswerView answer={answer} showMeta /></> : null}
                   <View style={styles.followUpCard}><Text style={styles.sectionLabel}>FOLGEFRAGE</Text><View style={styles.followUpRow}><TextInput value={followUp} onChangeText={setFollowUp} onSubmitEditing={submitFollowUp} placeholder="Was möchtest du noch wissen?" placeholderTextColor="#758179" style={styles.input} returnKeyType="send" /><Pressable style={styles.voiceFollowUpButton} onPress={() => startVoiceFollowUp()} accessibilityLabel="Folgefrage sprechen"><Text style={styles.voiceFollowUpText}>●</Text></Pressable><Pressable style={styles.sendButton} onPress={submitFollowUp}><Text style={styles.sendText}>↑</Text></Pressable></View></View>
                   <View style={styles.answerActions}><Pressable style={styles.secondaryButton} onPress={openCamera}><Text style={styles.secondaryButtonText}>Neues Dokument</Text></Pressable><Pressable style={styles.secondaryButton} onPress={() => startGeneralQuestion()}><Text style={styles.secondaryButtonText}>Neue Frage</Text></Pressable></View>
                   <Pressable onPress={cancel}><Text style={styles.destructiveAction}>{photoUri ? 'Bild und Kontext löschen' : 'Sitzungskontext löschen'}</Text></Pressable>
@@ -444,7 +448,7 @@ function SettingsScreen({ settings, updateSetting }: {
             <Text style={styles.previewButtonText}>Hörprobe</Text>
           </Pressable>
         </View>
-        <SettingRow title="Lösungsweg erklären" description="Fordert bei direkten Aufgaben zusätzlich eine kurze Erklärung an." value={settings.explainSteps} onValueChange={(value) => updateSetting('explainSteps', value)} />
+        <SettingRow title="Lösungsweg anzeigen" description="Zeigt auf der Brille kompakte Rechenschritte zwischen Ergebnis und erkanntem Inhalt." value={settings.explainSteps} onValueChange={(value) => updateSetting('explainSteps', value)} />
         <SettingRow title="Verlauf speichern" description="Speichert Frage und Antwort lokal, niemals das Foto." value={settings.saveHistory} onValueChange={(value) => updateSetting('saveHistory', value)} />
       </View>
 
@@ -625,6 +629,8 @@ function GlassesDisplay({ state, answer, error, codeScrollMode, onCodeInteractio
 
 function GlassesCardContent({ card, codePosition, codePixelOffset, codeScrollMode }: { card: GlassesCard; codePosition: number; codePixelOffset: Animated.Value; codeScrollMode: CodeScrollMode }) {
   if (card.type === 'summary') return <View><View style={styles.displaySummaryLines}>{card.lines.map((line, index) => <Text key={`${index}-${line}`} style={card.format === 'output' ? styles.displayOutputLine : styles.displayAnswer}>{line}</Text>)}</View>{card.nextHint ? <Text style={styles.displayHint}>{card.nextHint}  ›</Text> : null}</View>;
+  if (card.type === 'exercise') return <View style={styles.displayMathExercise}>{card.transformations.map((transformation, index) => { const finalResult = card.page === card.pages && index === card.transformations.length - 1; return <View style={[styles.displayMathTransformation, finalResult && styles.displayMathResult]} key={`${index}-${transformation.latex}`}><View style={styles.displayMathFormula}><MathLine latex={transformation.latex} dense /></View><Text style={[styles.displayMathOperation, finalResult && styles.displayMathOperationResult]}>{transformation.operation || (finalResult ? 'ERGEBNIS' : 'START')}</Text></View>; })}</View>;
+  if (card.type === 'recognized') return <View style={styles.displayRecognized}>{card.items.map((item, index) => <View style={styles.displayRecognizedItem} key={`${index}-${item.label}`}><Text style={styles.displayRecognizedLabel}>{item.label}</Text><View style={styles.displayRecognizedFormula}><MathLine latex={item.sourceLatex} dense /></View></View>)}</View>;
   if (card.type === 'step' && card.step.contentType === 'code') {
     const lines = wrapCode(card.step.content);
     const firstLine = Math.floor(codePosition);
@@ -697,6 +703,8 @@ const styles = StyleSheet.create({
   glassesArea: { gap: 9 }, glasses: { minHeight: 220, borderRadius: 28, borderWidth: 2, borderColor: '#45ee7b', backgroundColor: '#06140b', padding: 20, gap: 18, justifyContent: 'center', shadowColor: '#45ee7b', shadowOpacity: 0.16, shadowRadius: 18 },
   displayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, displayLabel: { color: '#3e9b5c', fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, displayProgress: { color: '#70ff9b', fontSize: 10, fontWeight: '900' }, displayAnswer: { color: '#70ff9b', fontSize: 23, lineHeight: 29, fontWeight: '700' },
   displaySummaryLines: { gap: 4 }, displayOutputLine: { color: '#70ff9b', fontFamily: 'monospace', fontSize: 19, lineHeight: 24, fontWeight: '700' },
+  displayMathExercise: { gap: 4 }, displayMathTransformation: { minHeight: 25, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 5, borderRadius: 8 }, displayMathResult: { backgroundColor: '#14351f', borderWidth: 1, borderColor: '#3d9b59' }, displayMathFormula: { flex: 1, overflow: 'hidden' }, displayMathOperation: { width: 55, color: '#ffda77', fontSize: 9, fontWeight: '900', textAlign: 'right' }, displayMathOperationResult: { color: '#70ff9b' },
+  displayRecognized: { gap: 10 }, displayRecognizedItem: { gap: 2, paddingBottom: 7, borderBottomWidth: 1, borderBottomColor: '#24412e' }, displayRecognizedLabel: { color: '#ffda77', fontSize: 12, fontWeight: '900' }, displayRecognizedFormula: { alignItems: 'flex-start' },
   displayStep: { gap: 6 }, displayStepTitle: { color: '#ffda77', fontSize: 15, lineHeight: 19, fontWeight: '900' }, displayStepExplanation: { color: '#9fc9aa', fontSize: 12, lineHeight: 16 }, displayCodeViewport: { height: 100, overflow: 'hidden' }, displayCodeRowFixed: { height: 20, flexDirection: 'row', gap: 7 }, displayScrollHint: { color: '#5d8068', fontSize: 10, textAlign: 'right' }, displayGestureHint: { color: '#698074', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   displayEvidence: { color: '#a7ffbf', fontSize: 15, lineHeight: 20, marginTop: 13 }, displayHint: { color: '#ffda77', fontSize: 14, marginTop: 11 },
   displayCode: { gap: 3 }, displayCodeRow: { flexDirection: 'row', gap: 7 }, displayLineNumber: { width: 20, color: '#438f5a', fontFamily: 'monospace', fontSize: 11, lineHeight: 17, textAlign: 'right' }, displayCodeText: { flex: 1, color: '#aaffbf', fontFamily: 'monospace', fontSize: 11, lineHeight: 17 }, displayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }, displayNavText: { color: '#70ff9b', fontSize: 12, fontWeight: '800', padding: 7 }, displayNavDisabled: { color: '#35463b' }, displayNavHint: { color: '#5e7065', fontSize: 10 },
@@ -721,5 +729,6 @@ const styles = StyleSheet.create({
   focusCard: { minHeight: 330, borderRadius: 28, backgroundColor: '#101b14', borderWidth: 1, borderColor: '#26372d', padding: 24, gap: 14, alignItems: 'center', justifyContent: 'center' }, listeningPulse: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#32191d', borderWidth: 1, borderColor: '#6d3037', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }, listeningDot: { color: '#ff646b', fontSize: 32 }, focusTitle: { color: '#f3fff7', fontSize: 27, fontWeight: '900' }, focusCopy: { color: '#92a299', fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 310 },
   errorCard: { borderRadius: 24, backgroundColor: '#251517', borderWidth: 1, borderColor: '#653237', padding: 20, gap: 15 }, errorLabel: { color: '#ff7a80', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 }, errorText: { color: '#f4e8e9', fontSize: 17, lineHeight: 25 },
   answerWorkspace: { gap: 15 }, answerMeta: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, answerMetaOnly: { borderTopWidth: 0, paddingTop: 0 }, speakAction: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, followUpCard: { borderRadius: 20, backgroundColor: '#0d1812', borderWidth: 1, borderColor: '#26372d', padding: 15, gap: 11 }, answerActions: { flexDirection: 'row', gap: 10 }, destructiveAction: { color: '#d9787d', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 12 },
+  diagnosticsToggle: { minHeight: 66, borderRadius: 18, borderWidth: 1, borderColor: '#294033', backgroundColor: '#0d1812', paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, diagnosticsTitle: { color: '#dce9e0', fontSize: 14, fontWeight: '800' }, diagnosticsDescription: { color: '#77887e', fontSize: 11, marginTop: 3 }, diagnosticsArrow: { color: '#70ff9b', fontSize: 20, fontWeight: '800' },
   backAction: { color: '#70ff9b', fontSize: 16, fontWeight: '800', paddingVertical: 5 }, historyDetailQuestion: { color: '#f3fff7', fontSize: 25, lineHeight: 32, fontWeight: '900' }, historyOpen: { color: '#70ff9b', fontSize: 12, fontWeight: '800', paddingTop: 5 }, emptyState: { minHeight: 240, alignItems: 'center', justifyContent: 'center', gap: 8 }, emptyTitle: { color: '#effaf2', fontSize: 20, fontWeight: '800' },
 });

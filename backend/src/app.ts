@@ -11,6 +11,7 @@ import type { Answer, QueryInput, VisionService } from "./types.js";
 const followUpSchema = z.object({
   question: z.string().trim().min(1).max(1000),
   locale: z.string().trim().min(2).max(20).default("de-DE"),
+  includeSteps: z.boolean().default(true),
 });
 
 const questionSchema = followUpSchema.extend({
@@ -32,7 +33,15 @@ function sniffImageMime(data: Buffer, declared: string): string | undefined {
   return undefined;
 }
 
+function parseBooleanField(value: string | undefined, fallback = true): boolean {
+  if (value === undefined) return fallback;
+  return value === "true";
+}
+
 function answerContext(answer: Answer): string {
+  const glassesMath = answer.glassesExercises.map((exercise) =>
+    `${exercise.label} ${exercise.sourceLatex} => ${exercise.resultLatex}\n${exercise.transformations.map((step) => `${step.latex}${step.operation ? ` [${step.operation}]` : ""}`).join("\n")}`,
+  ).join("\n\n");
   const steps = answer.solution.steps.map((step, index) =>
     `Step ${index + 1} – ${step.title}: ${step.content}\n${step.explanation}`,
   ).join("\n\n");
@@ -41,7 +50,7 @@ function answerContext(answer: Answer): string {
     if (block.type === "math") return `Formula (LaTeX): ${block.latex}`;
     return block.markdown;
   }).join("\n\n");
-  return `${answer.spokenAnswer}\n\n${steps}\n\n${structured}`.slice(0, 12_000);
+  return `${answer.spokenAnswer}\n\n${glassesMath}\n\n${steps}\n\n${structured}`.slice(0, 12_000);
 }
 
 export async function buildApp(config: Config, vision: VisionService): Promise<FastifyInstance> {
@@ -97,6 +106,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     const input: QueryInput = {
       question: parsed.data.question,
       locale: parsed.data.locale,
+      includeSteps: parsed.data.includeSteps,
     };
     const answer = await vision.answer(input);
     sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
@@ -135,6 +145,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       question,
       ocrText: (fields.ocrText || "").slice(0, 30_000),
       locale: (fields.locale || "de-DE").slice(0, 20),
+      includeSteps: parseBooleanField(fields.includeSteps),
     };
     const answer = await vision.answer(input);
     sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
@@ -156,13 +167,13 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       if (audio && audio.data.length > config.MAX_AUDIO_BYTES) return reply.code(413).send({ error: "audio_too_large" });
       let question = (fields.question || "").trim();
       if (!question && audio) question = await vision.transcribe(audio.data, audio.filename, audio.mime);
-      followUpInput = { question, locale: fields.locale || "de-DE" };
+      followUpInput = { question, locale: fields.locale || "de-DE", includeSteps: parseBooleanField(fields.includeSteps) };
     }
     const parsed = followUpSchema.safeParse(followUpInput);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_follow_up" });
     const previous = sessions.get(id);
     if (!previous) return reply.code(404).send({ error: "session_expired" });
-    const input = { ...previous, question: parsed.data.question, locale: parsed.data.locale };
+    const input = { ...previous, question: parsed.data.question, locale: parsed.data.locale, includeSteps: parsed.data.includeSteps };
     const answer = await vision.answer(input);
     sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
     return { queryId: randomUUID(), sessionId: id, question: input.question, ...answer };

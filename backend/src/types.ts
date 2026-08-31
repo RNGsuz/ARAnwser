@@ -14,12 +14,33 @@ export const solutionStepSchema = z.object({
   language: z.string().max(40).nullable(),
 });
 
+const labelSourceSchema = z.enum(["document", "generated"]);
+
+export const glassesExerciseSchema = z.object({
+  label: z.string().min(1).max(80),
+  labelSource: labelSourceSchema,
+  sourceLatex: z.string().min(1).max(1000),
+  resultLatex: z.string().min(1).max(500),
+  transformations: z.array(z.object({
+    latex: z.string().min(1).max(1000),
+    operation: z.string().max(60).nullable(),
+  })).max(6),
+});
+
+export const recognizedItemSchema = z.object({
+  label: z.string().min(1).max(80),
+  labelSource: labelSourceSchema,
+  sourceLatex: z.string().min(1).max(1000),
+});
+
 export const answerSchema = z.object({
   shortAnswer: z.string().min(1).max(240),
   glassesSummary: z.object({
     format: z.enum(["text", "output"]),
     lines: z.array(z.string().min(1).max(80)).min(1).max(12),
   }),
+  glassesExercises: z.array(glassesExerciseSchema).max(12),
+  recognizedItems: z.array(recognizedItemSchema).max(12),
   solution: z.object({
     kind: z.enum(["math", "code", "document", "concept", "direct", "selection"]),
     title: z.string().min(1).max(80),
@@ -43,6 +64,7 @@ export interface QueryInput {
   locale: string;
   previousQuestion?: string;
   previousAnswer?: string;
+  includeSteps?: boolean;
 }
 
 export interface VisionService {

@@ -1,4 +1,4 @@
-import type { AnswerBlock, DocumentAnswer, SolutionStep } from './types';
+import type { AnswerBlock, DocumentAnswer, GlassesExercise, RecognizedItem, SolutionStep } from './types';
 
 export interface GlassesCodeLine {
   sourceLine: number;
@@ -8,14 +8,19 @@ export interface GlassesCodeLine {
 
 export type GlassesCard =
   | { type: 'summary'; title: string; format: 'text' | 'output'; lines: string[]; nextHint: string | null }
+  | { type: 'exercise'; title: string; exercise: GlassesExercise; transformations: GlassesExercise['transformations']; page: number; pages: number }
+  | { type: 'recognized'; title: string; items: RecognizedItem[]; page: number; pages: number }
   | { type: 'step'; title: string; number: number; total: number; step: SolutionStep }
   | { type: 'code'; title: string; lines: GlassesCodeLine[] }
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
   | { type: 'note'; title: string; text: string };
 
-const maxCodeColumns = 60;
+// 56 leaves room for the line-number gutter and avoids clipping on narrower phones.
+const maxCodeColumns = 56;
 const codeLinesPerCard = 5;
 const summaryLinesPerCard = 5;
+const transformationsPerCard = 5;
+const recognizedItemsPerCard = 2;
 
 function splitAtReadableBoundary(value: string, limit: number): [string, string] {
   if (value.length <= limit) return [value, ''];
@@ -60,19 +65,41 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const blocks = answer.blocks ?? [];
   const detailCards: GlassesCard[] = [];
   const solutionSteps = answer.solution?.steps ?? [];
+  const exercises = answer.glassesExercises ?? [];
+  const recognizedItems = answer.recognizedItems ?? [];
+  const hasPrimaryMathDisplay = exercises.length > 0 || recognizedItems.length > 0;
   const codeLivesInSolution = solutionSteps.some((step) => step.contentType === 'code');
-  solutionSteps.forEach((step, index) => detailCards.push({
-    type: 'step', title: `SCHRITT ${index + 1}/${solutionSteps.length}`, number: index + 1, total: solutionSteps.length, step,
-  }));
-  for (const block of blocks) {
-    if (block.type === 'code' && !codeLivesInSolution) {
-      for (const page of chunks(wrapCode(block.code), codeLinesPerCard)) {
-        detailCards.push({ type: 'code', title: block.language?.toUpperCase() || 'CODE', lines: page });
-      }
+  if (hasPrimaryMathDisplay) {
+    for (const exercise of exercises) {
+      if (!exercise.transformations.length) continue;
+      const pages = chunks(exercise.transformations, transformationsPerCard);
+      pages.forEach((transformations, index) => detailCards.push({
+        type: 'exercise',
+        title: `${exercise.label} · LÖSUNGSWEG${pages.length > 1 ? ` ${index + 1}/${pages.length}` : ''}`,
+        exercise,
+        transformations,
+        page: index + 1,
+        pages: pages.length,
+      }));
     }
-    if (block.type === 'math') detailCards.push({ type: 'math', title: 'FORMEL', block });
+    const recognizedPages = chunks(recognizedItems, recognizedItemsPerCard);
+    recognizedPages.forEach((items, index) => detailCards.push({
+      type: 'recognized', title: recognizedPages.length > 1 ? `ERKANNT ${index + 1}/${recognizedPages.length}` : 'ERKANNT', items, page: index + 1, pages: recognizedPages.length,
+    }));
+  } else {
+    solutionSteps.forEach((step, index) => detailCards.push({
+      type: 'step', title: `SCHRITT ${index + 1}/${solutionSteps.length}`, number: index + 1, total: solutionSteps.length, step,
+    }));
+    for (const block of blocks) {
+      if (block.type === 'code' && !codeLivesInSolution) {
+        for (const page of chunks(wrapCode(block.code), codeLinesPerCard)) {
+          detailCards.push({ type: 'code', title: block.language?.toUpperCase() || 'CODE', lines: page });
+        }
+      }
+      if (block.type === 'math') detailCards.push({ type: 'math', title: 'FORMEL', block });
+    }
+    if (answer.evidence[0]) detailCards.push({ type: 'note', title: 'WARUM?', text: answer.evidence[0] });
   }
-  if (answer.evidence[0]) detailCards.push({ type: 'note', title: 'WARUM?', text: answer.evidence[0] });
   const firstDetail = detailCards[0];
   const nextHint = firstDetail?.type === 'code'
     ? 'Nach links für Code'
@@ -80,6 +107,10 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
       ? 'Nach links für Formel'
       : firstDetail?.type === 'step'
         ? 'Nach links für Lösungsweg'
+      : firstDetail?.type === 'exercise'
+        ? 'Nach links für Lösungsweg'
+      : firstDetail?.type === 'recognized'
+        ? 'Nach links für erkannten Inhalt'
       : firstDetail
         ? 'Nach links für Details'
         : null;

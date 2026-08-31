@@ -18,6 +18,8 @@ const config: Config = {
 const answer = {
   shortAnswer: "42",
   glassesSummary: { format: "output" as const, lines: ["a) 42"] },
+  glassesExercises: [],
+  recognizedItems: [],
   solution: {
     kind: "math" as const,
     title: "Lösungsweg",
@@ -106,7 +108,7 @@ describe("query API", () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json().sessionId).toBe("general-session");
-    expect(vision.answer).toHaveBeenCalledWith({ question: "Warum ist der Himmel blau?", locale: "de-DE" });
+    expect(vision.answer).toHaveBeenCalledWith({ question: "Warum ist der Himmel blau?", locale: "de-DE", includeSteps: true });
 
     const followUp = await app.inject({
       method: "POST",
@@ -138,10 +140,11 @@ describe("query API", () => {
       method: "POST",
       url: "/v1/queries",
       headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${boundary}` },
-      payload: multipart(boundary, { question: "Was ist die Antwort?", sessionId: "session-1", ocrText: "42" }),
+      payload: multipart(boundary, { question: "Was ist die Antwort?", sessionId: "session-1", ocrText: "42", includeSteps: "false" }),
     });
     expect(first.statusCode).toBe(201);
     expect(first.json().shortAnswer).toBe("42");
+    expect(vision.answer).toHaveBeenNthCalledWith(1, expect.objectContaining({ includeSteps: false }));
 
     const followUp = await app.inject({
       method: "POST",
