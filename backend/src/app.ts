@@ -14,6 +14,8 @@ const followUpSchema = z.object({
   includeSteps: z.boolean().default(true),
 });
 
+const intentSchema = z.enum(["solve", "discover", "question"]);
+
 const questionSchema = followUpSchema.extend({
   sessionId: z.string().trim().min(1).max(200).optional(),
 });
@@ -39,6 +41,9 @@ function parseBooleanField(value: string | undefined, fallback = true): boolean 
 }
 
 function answerContext(answer: Answer): string {
+  const discovery = answer.discoveryInfo
+    ? `${answer.discoveryInfo.name} (${answer.discoveryInfo.category}): ${answer.discoveryInfo.description}\n${answer.discoveryInfo.facts.join("\n")}`
+    : "";
   const glassesMath = answer.glassesExercises.map((exercise) =>
     `${exercise.label} ${exercise.sourceLatex} => ${exercise.resultLatex}\n${exercise.transformations.map((step) => `${step.latex}${step.operation ? ` [${step.operation}]` : ""}`).join("\n")}`,
   ).join("\n\n");
@@ -53,7 +58,7 @@ function answerContext(answer: Answer): string {
     if (block.type === "math") return `Formula (LaTeX): ${block.latex}`;
     return block.markdown;
   }).join("\n\n");
-  return `${answer.spokenAnswer}\n\n${glassesMath}\n\n${glassesCode}\n\n${steps}\n\n${structured}`.slice(0, 16_000);
+  return `${answer.spokenAnswer}\n\n${discovery}\n\n${glassesMath}\n\n${glassesCode}\n\n${steps}\n\n${structured}`.slice(0, 16_000);
 }
 
 export async function buildApp(config: Config, vision: VisionService): Promise<FastifyInstance> {
@@ -110,6 +115,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       question: parsed.data.question,
       locale: parsed.data.locale,
       includeSteps: parsed.data.includeSteps,
+      intent: "question",
     };
     const answer = await vision.answer(input);
     sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
@@ -149,6 +155,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       ocrText: (fields.ocrText || "").slice(0, 30_000),
       locale: (fields.locale || "de-DE").slice(0, 20),
       includeSteps: parseBooleanField(fields.includeSteps),
+      intent: intentSchema.catch("solve").parse(fields.intent),
     };
     const answer = await vision.answer(input);
     sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });

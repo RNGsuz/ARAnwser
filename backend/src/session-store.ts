@@ -36,6 +36,7 @@ export class SessionStore {
       ...(session.previousQuestion ? { previousQuestion: session.previousQuestion } : {}),
       ...(session.previousAnswer ? { previousAnswer: session.previousAnswer } : {}),
       ...(session.includeSteps !== undefined ? { includeSteps: session.includeSteps } : {}),
+      ...(session.intent ? { intent: session.intent } : {}),
       question: session.question,
       locale: session.locale,
     };

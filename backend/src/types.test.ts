@@ -10,6 +10,7 @@ describe("structured answer schema", () => {
       glassesExercises: [{ label: "Frage 150)", labelSource: "document", sourceLatex: "1+2", resultLatex: "3", transformations: [{ latex: "1+2", operation: null }, { latex: "3", operation: "addieren" }] }],
       recognizedItems: [{ label: "Frage 150)", labelSource: "document", sourceLatex: "1+2" }],
       glassesCodeUnits: [],
+      discoveryInfo: null,
       solution: { kind: "math", title: "Lösungsweg", steps: [{ title: "Summieren", explanation: "Die Terme werden addiert.", contentType: "math", content: "1 + 2 = 3", language: null }] },
       spokenAnswer: "Die Antwort enthält erklärenden Text, Programmcode und eine mathematische Formel.",
       evidence: [],
@@ -34,6 +35,7 @@ describe("structured answer schema", () => {
       glassesExercises: [],
       recognizedItems: [],
       glassesCodeUnits: [],
+      discoveryInfo: null,
       solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
@@ -51,6 +53,7 @@ describe("structured answer schema", () => {
       glassesExercises: [],
       recognizedItems: [],
       glassesCodeUnits: [],
+      discoveryInfo: null,
       solution: { kind: "direct", title: "Direkte Antwort", steps: [] },
       spokenAnswer: "Test",
       evidence: [],
@@ -74,6 +77,7 @@ describe("structured answer schema", () => {
       glassesExercises: [{ label: "", labelSource: "document", sourceLatex: "3(x-1)+2=2x", resultLatex: "x=1", transformations: [] }],
       recognizedItems: [{ label: "a)", labelSource: "document", sourceLatex: "3(x-1)+2=2x" }],
       glassesCodeUnits: [],
+      discoveryInfo: null,
       solution: { kind: "direct", title: "Diagnose", steps: [] },
       spokenAnswer: "x ist eins.", evidence: [], confidence: 1, needsRetake: false, retakeHint: null,
       blocks: [{ type: "text", markdown: "x = 1" }],
@@ -91,6 +95,7 @@ describe("structured answer schema", () => {
       glassesExercises: [],
       recognizedItems: [],
       glassesCodeUnits: [{ label: "static int sum(int[] values)", language: "java", code: method, explanation: "Summiert die Werte." }],
+      discoveryInfo: null,
       solution: { kind: "code", title: "Implementierung", steps: [] },
       spokenAnswer: "Die Methode summiert alle Werte.", evidence: [], confidence: 1,
       needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Die Laufzeit ist linear." }],
@@ -105,10 +110,22 @@ describe("structured answer schema", () => {
     const result = answerSchema.parse({
       shortAnswer: "Drei Methoden implementiert", glassesSummary: { format: "text", lines: ["3 Methoden vollständig"] },
       glassesExercises: [], recognizedItems: [], glassesCodeUnits: methods,
+      discoveryInfo: null,
       solution: { kind: "code", title: "Implementierung", steps: [] }, spokenAnswer: "Drei Methoden wurden implementiert.",
       evidence: [], confidence: 1, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Laufzeit konstant." }],
     });
     expect(result.glassesCodeUnits.map((unit) => unit.label)).toEqual(methods.map((unit) => unit.label));
     expect(result.glassesCodeUnits.every((unit) => unit.code.endsWith("}"))).toBe(true);
+  });
+
+  it("accepts a structured discovery infobox", () => {
+    const result = answerSchema.parse({
+      shortAnswer: "Eine Walnuss", glassesSummary: { format: "text", lines: ["Walnuss", "Botanisch eine Steinfrucht"] },
+      glassesExercises: [], recognizedItems: [], glassesCodeUnits: [],
+      discoveryInfo: { name: "Walnuss", category: "Lebensmittel", description: "Der essbare Samen des Walnussbaums.", facts: ["Reich an ungesättigten Fettsäuren.", "Botanisch keine echte Nuss."], alternatives: [], safetyNote: "Bei Nussallergie nicht verzehren." },
+      solution: { kind: "direct", title: "Entdeckt", steps: [] }, spokenAnswer: "Das ist wahrscheinlich eine Walnuss.",
+      evidence: [], confidence: 0.95, needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "Walnuss" }],
+    });
+    expect(result.discoveryInfo?.facts).toHaveLength(2);
   });
 });

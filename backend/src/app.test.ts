@@ -21,6 +21,7 @@ const answer = {
   glassesExercises: [],
   recognizedItems: [],
   glassesCodeUnits: [],
+  discoveryInfo: null,
   solution: {
     kind: "math" as const,
     title: "Lösungsweg",
@@ -109,7 +110,7 @@ describe("query API", () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json().sessionId).toBe("general-session");
-    expect(vision.answer).toHaveBeenCalledWith({ question: "Warum ist der Himmel blau?", locale: "de-DE", includeSteps: true });
+    expect(vision.answer).toHaveBeenCalledWith({ question: "Warum ist der Himmel blau?", locale: "de-DE", includeSteps: true, intent: "question" });
 
     const followUp = await app.inject({
       method: "POST",
@@ -141,11 +142,11 @@ describe("query API", () => {
       method: "POST",
       url: "/v1/queries",
       headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${boundary}` },
-      payload: multipart(boundary, { question: "Was ist die Antwort?", sessionId: "session-1", ocrText: "42", includeSteps: "false" }),
+      payload: multipart(boundary, { question: "Was ist die Antwort?", sessionId: "session-1", ocrText: "42", includeSteps: "false", intent: "discover" }),
     });
     expect(first.statusCode).toBe(201);
     expect(first.json().shortAnswer).toBe("42");
-    expect(vision.answer).toHaveBeenNthCalledWith(1, expect.objectContaining({ includeSteps: false }));
+    expect(vision.answer).toHaveBeenNthCalledWith(1, expect.objectContaining({ includeSteps: false, intent: "discover" }));
 
     const followUp = await app.inject({
       method: "POST",
@@ -155,6 +156,7 @@ describe("query API", () => {
     });
     expect(followUp.statusCode).toBe(200);
     expect(vision.answer).toHaveBeenCalledTimes(2);
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({ intent: "discover" }));
 
     const removed = await app.inject({ method: "DELETE", url: "/v1/sessions/session-1", headers: { authorization: "Bearer 1234567890123456" } });
     expect(removed.statusCode).toBe(204);

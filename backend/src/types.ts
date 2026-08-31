@@ -40,6 +40,15 @@ export const glassesCodeUnitSchema = z.object({
   explanation: z.string().min(1).max(240),
 });
 
+export const discoveryInfoSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: z.string().min(1).max(80),
+  description: z.string().min(1).max(320),
+  facts: z.array(z.string().min(1).max(180)).min(1).max(4),
+  alternatives: z.array(z.string().min(1).max(100)).max(3),
+  safetyNote: z.string().min(1).max(240).nullable(),
+});
+
 export const answerSchema = z.object({
   shortAnswer: z.string().min(1).max(240),
   glassesSummary: z.object({
@@ -49,6 +58,7 @@ export const answerSchema = z.object({
   glassesExercises: z.array(glassesExerciseSchema).max(12),
   recognizedItems: z.array(recognizedItemSchema).max(12),
   glassesCodeUnits: z.array(glassesCodeUnitSchema).max(12),
+  discoveryInfo: discoveryInfoSchema.nullable(),
   solution: z.object({
     kind: z.enum(["math", "code", "document", "concept", "direct", "selection"]),
     title: z.string().min(1).max(80),
@@ -73,6 +83,7 @@ export interface QueryInput {
   previousQuestion?: string;
   previousAnswer?: string;
   includeSteps?: boolean;
+  intent?: "solve" | "discover" | "question";
 }
 
 export interface VisionService {

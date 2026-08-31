@@ -1,4 +1,4 @@
-import type { DocumentAnswer } from './types';
+import type { AssistantMode, DocumentAnswer } from './types';
 
 function normalizeBaseUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -68,7 +68,7 @@ async function request(url: string, init: RequestInit, timeoutMs = requestTimeou
 export async function createQuery(
   imageUri: string,
   sessionId: string,
-  options: { audioUri?: string; question?: string; includeSteps?: boolean },
+  options: { audioUri?: string; question?: string; includeSteps?: boolean; intent?: Exclude<AssistantMode, 'question'> },
 ): Promise<DocumentAnswer> {
   if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL fehlt in mobile/.env.');
   const form = new FormData();
@@ -80,6 +80,7 @@ export async function createQuery(
   form.append('sessionId', sessionId);
   form.append('locale', 'de-DE');
   form.append('includeSteps', String(options.includeSteps ?? true));
+  form.append('intent', options.intent ?? 'solve');
   const response = await request(`${baseUrl}/v1/queries`, { method: 'POST', headers: headers(), body: form }, answerTimeoutMs);
   return readResponse(response);
 }

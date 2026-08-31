@@ -49,6 +49,17 @@ export interface GlassesCodeUnit {
   explanation: string;
 }
 
+export interface DiscoveryInfo {
+  name: string;
+  category: string;
+  description: string;
+  facts: string[];
+  alternatives: string[];
+  safetyNote: string | null;
+}
+
+export type AssistantMode = 'discover' | 'solve' | 'question';
+
 export interface DocumentAnswer {
   queryId: string;
   sessionId: string;
@@ -58,6 +69,7 @@ export interface DocumentAnswer {
   glassesExercises?: GlassesExercise[];
   recognizedItems?: RecognizedItem[];
   glassesCodeUnits?: GlassesCodeUnit[];
+  discoveryInfo?: DiscoveryInfo | null;
   solution?: GuidedSolution;
   spokenAnswer: string;
   evidence: string[];
@@ -74,6 +86,7 @@ export interface HistoryEntry {
   glassesExercises?: GlassesExercise[];
   recognizedItems?: RecognizedItem[];
   glassesCodeUnits?: GlassesCodeUnit[];
+  discoveryInfo?: DiscoveryInfo | null;
   solution?: GuidedSolution;
   spokenAnswer: string;
   confidence: number;

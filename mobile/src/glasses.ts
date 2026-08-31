@@ -1,4 +1,4 @@
-import type { AnswerBlock, DocumentAnswer, GlassesCodeUnit, GlassesExercise, RecognizedItem, SolutionStep } from './types';
+import type { AnswerBlock, DiscoveryInfo, DocumentAnswer, GlassesCodeUnit, GlassesExercise, RecognizedItem, SolutionStep } from './types';
 
 export interface GlassesCodeLine {
   sourceLine: number;
@@ -11,6 +11,7 @@ export type GlassesCard =
   | { type: 'exercise'; title: string; exercise: GlassesExercise; transformations: GlassesExercise['transformations']; page: number; pages: number }
   | { type: 'recognized'; title: string; items: RecognizedItem[]; page: number; pages: number }
   | { type: 'codeUnit'; title: string; unit: GlassesCodeUnit }
+  | { type: 'discovery'; title: string; info: DiscoveryInfo; facts: string[]; page: number; pages: number }
   | { type: 'step'; title: string; number: number; total: number; step: SolutionStep }
   | { type: 'code'; title: string; lines: GlassesCodeLine[] }
   | { type: 'math'; title: string; block: Extract<AnswerBlock, { type: 'math' }> }
@@ -69,9 +70,16 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
   const exercises = answer.glassesExercises ?? [];
   const recognizedItems = answer.recognizedItems ?? [];
   const codeUnits = answer.glassesCodeUnits ?? [];
+  const discovery = answer.discoveryInfo;
   const hasPrimaryMathDisplay = exercises.length > 0 || recognizedItems.length > 0;
   const codeLivesInSolution = solutionSteps.some((step) => step.contentType === 'code');
-  if (hasPrimaryMathDisplay) {
+  if (discovery) {
+    const factPages = chunks(discovery.facts, 2);
+    factPages.forEach((facts, index) => detailCards.push({
+      type: 'discovery', title: factPages.length > 1 ? `NICE TO KNOW ${index + 1}/${factPages.length}` : 'NICE TO KNOW', info: discovery, facts, page: index + 1, pages: factPages.length,
+    }));
+    if (discovery.safetyNote) detailCards.push({ type: 'note', title: 'HINWEIS', text: discovery.safetyNote });
+  } else if (hasPrimaryMathDisplay) {
     for (const exercise of exercises) {
       if (!exercise.transformations.length) continue;
       const pages = chunks(exercise.transformations, transformationsPerCard);
@@ -117,6 +125,8 @@ export function buildGlassesCards(answer: DocumentAnswer): GlassesCard[] {
         ? 'Nach links für Lösungsweg'
       : firstDetail?.type === 'recognized'
         ? 'Nach links für erkannten Inhalt'
+      : firstDetail?.type === 'discovery'
+        ? 'Nach links für Fakten'
       : firstDetail
         ? 'Nach links für Details'
         : null;

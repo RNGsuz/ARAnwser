@@ -5,7 +5,7 @@ import type { Config } from "./config.js";
 export const outputJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
+  required: ["shortAnswer", "glassesSummary", "glassesExercises", "recognizedItems", "glassesCodeUnits", "discoveryInfo", "solution", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"],
   properties: {
     shortAnswer: { type: "string", minLength: 1, maxLength: 240 },
     glassesSummary: {
@@ -73,6 +73,24 @@ export const outputJsonSchema = {
           explanation: { type: "string", minLength: 1, maxLength: 240 },
         },
       },
+    },
+    discoveryInfo: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["name", "category", "description", "facts", "alternatives", "safetyNote"],
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 100 },
+            category: { type: "string", minLength: 1, maxLength: 80 },
+            description: { type: "string", minLength: 1, maxLength: 320 },
+            facts: { type: "array", minItems: 1, maxItems: 4, items: { type: "string", minLength: 1, maxLength: 180 } },
+            alternatives: { type: "array", maxItems: 3, items: { type: "string", minLength: 1, maxLength: 100 } },
+            safetyNote: { type: ["string", "null"], minLength: 1, maxLength: 240 },
+          },
+        },
+        { type: "null" },
+      ],
     },
     solution: {
       type: "object",
@@ -187,6 +205,7 @@ export class OpenAIVisionService implements VisionService {
 
   async answer(input: QueryInput): Promise<Answer> {
     const hasImage = Boolean(input.image && input.imageMimeType);
+    const isDiscovery = input.intent === "discover";
     const previousContext = input.previousQuestion && input.previousAnswer
       ? `Previous question: ${input.previousQuestion}\nPrevious answer: ${input.previousAnswer}\n\n`
       : "";
@@ -208,11 +227,16 @@ export class OpenAIVisionService implements VisionService {
       store: false,
       reasoning: { effort: "low" },
       instructions: [
-        hasImage
+        isDiscovery
+          ? "The user deliberately selected object discovery. Identify and explain the main physical object, animal, plant, artwork, food, or scene in the photo. Do not treat visible writing as a worksheet and do not solve tasks unless the current question explicitly asks for it. Be honest about visual ambiguity. If the main subject cannot be identified responsibly, set needsRetake=true and give a concrete retake instruction."
+          : hasImage
           ? "Answer only from the photographed document or slide. Never invent unreadable or absent content. If evidence is insufficient, set needsRetake=true and explain how to improve the photo."
           : "Answer the general question directly. There is no photo to inspect, so always set needsRetake=false and retakeHint=null.",
-        hasImage ? "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one." : "",
-        hasImage ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
+        hasImage && !isDiscovery ? "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one." : "",
+        hasImage && !isDiscovery ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
+        isDiscovery
+          ? "For discovery mode, discoveryInfo is required. name is the most likely identification, category is a short category, description is a compact two-sentence explanation, and facts contains two to four useful or surprising facts without repetition. alternatives lists plausible alternatives only when uncertainty is meaningful. Add a concise safetyNote for plants, fungi, animals, foods, medicines, chemicals, tools, or other cases where visual identification must not be treated as safety advice; otherwise use null. glassesSummary has exactly two separately understandable lines: the object name, then a complete identifying description of at most 60 characters; never truncate a word. The following discovery cards already show the facts. Keep glassesExercises, recognizedItems, and glassesCodeUnits empty, and solution.steps empty."
+          : "For solve and general-question modes, discoveryInfo must be null.",
         "Use the previous exchange only to resolve contextual follow-ups. Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief supporting points.",
         "glassesSummary is the result-only view for a small display. For related subquestions, create exactly one concise line per requested part and preserve labels such as a), b), and c). Do not add reasoning, introductions, raw LaTeX commands, dollar delimiters, or environments such as begin/end to these lines; use readable Unicode symbols where useful. Quote string results and write numbers, booleans, and null explicitly. Set format=output for program output, exact result lists, or labeled exercise answers; otherwise use format=text. For a normal single question, use one to three short lines.",
         "The glasses display is the primary output. Preserve every visible exercise label verbatim in glassesSummary, glassesExercises, and recognizedItems, including forms such as 1), 150), a), Frage 2), Aufgabe 7a, or Roman numerals. Never renumber, shorten, translate, or normalize a document label. Keep document order. Only generate labels such as Aufgabe 1 when no visible label exists, and then set labelSource=generated; otherwise set labelSource=document.",

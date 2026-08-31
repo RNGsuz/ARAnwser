@@ -1,9 +1,9 @@
 # AR Answer
 
-Ein hardwareunabhängiger MVP für eine Display-Brille: Foto aufnehmen, eine klar
-sichtbare Aufgabe direkt lösen, den Inhalt mit „Was steht dort?“ erfassen oder
-optional eine eigene Frage sprechen. Allgemeine Fragen funktionieren auch ohne
-Foto; Folgefragen verwenden den letzten flüchtigen Sitzungskontext.
+Ein hardwareunabhängiger MVP für eine Display-Brille mit drei bewussten
+Einstiegen: Objekte per Foto entdecken, Aufgaben auf Dokumenten und Slides lösen
+oder allgemeine Fragen ohne Foto sprechen. Folgefragen verwenden den letzten
+flüchtigen Sitzungskontext.
 
 ## Architektur
 
@@ -43,6 +43,21 @@ LAN-Adresse des Rechners zeigen, nicht auf `localhost`. Für Produktion
 ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
 
 ## Bedienung
+
+Der Assistent beginnt mit drei klar getrennten Modi:
+
+- **Entdecken** fotografiert ein Objekt, Tier, eine Pflanze, ein Kunstwerk,
+  Lebensmittel oder eine Szene und erzeugt eine kompakte Infobox mit
+  Identifikation, Beschreibung, Fakten, möglichen Alternativen und bei Bedarf
+  einem Sicherheitshinweis.
+- **Aufgabe lösen** verwendet den bestehenden Dokument-, Mathematik- und
+  Codeablauf. Nach dem Foto können alle zusammengehörigen sichtbaren Aufgaben
+  gelöst oder eine gezielte Sprachfrage zum Bild gestellt werden.
+- **Frage stellen** nimmt eine allgemeine Sprachfrage ohne Foto auf und zeigt vor
+  dem Absenden das bearbeitbare Transkript.
+
+Der Fotomodus bleibt für Folgefragen und erneute Aufnahmen erhalten. Die KI
+entscheidet ihn nicht eigenmächtig.
 
 1. Foto bewusst per Taste aufnehmen und das Dokument innerhalb des Rahmens halten.
 2. Zwischen direkter Lösung, **Was steht dort?** und einer eigenen Sprachfrage

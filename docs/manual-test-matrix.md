@@ -1,8 +1,26 @@
 # Manuelle Testmatrix
 
-Vor einer Testserie Backend und Expo-App neu starten. Für jede Bildklasse die
-drei Einstiege **direkt lösen**, **Was steht dort?** und **eigene Sprachfrage**
-prüfen. Keine vertraulichen Dokumente für Testaufnahmen verwenden.
+Vor einer Testserie Backend und Expo-App neu starten. Keine vertraulichen
+Dokumente für Testaufnahmen verwenden.
+
+## Eingabemodi
+
+- Auf dem Startbildschirm müssen **Entdecken**, **Aufgabe lösen** und **Frage
+  stellen** als drei eigenständige Aktionen sichtbar sein.
+- Im Modus **Entdecken** eine Pflanze, Schale Nüsse oder Statue fotografieren.
+  Nach dem Foto dürfen nur **Informationen anzeigen**, **Eigene Frage zum Foto**
+  und **Foto erneut aufnehmen** angeboten werden.
+- Die Entdecken-Antwort muss Name, Kategorie, Beschreibung und zwei bis vier
+  Nice-to-know-Fakten enthalten. Bei Pflanzen, Pilzen oder Lebensmitteln muss ein
+  angemessener Sicherheitshinweis erscheinen; unsichere Alternativen sind als
+  solche zu kennzeichnen.
+- Im Modus **Aufgabe lösen** müssen **Alle sichtbaren Aufgaben lösen** und die
+  gezielte Frage zum Foto erscheinen. Eine Objekt-Infobox darf hier nicht den
+  Aufgabenvertrag ersetzen.
+- **Frage stellen** darf weder Kamera noch Fotoaktionen öffnen. Aufnahme,
+  Transkriptprüfung und Korrektur müssen weiterhin funktionieren.
+- Foto wiederholen und Folgefrage senden; der ursprünglich gewählte Modus muss
+  jeweils erhalten bleiben.
 
 ## Dokumente und Aufnahmebedingungen
 
