@@ -3,6 +3,8 @@ import { z } from "zod";
 const schema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.6-luna"),
+  OPENAI_FAST_MODEL: z.string().min(1).optional(),
+  OPENAI_REASONING_MODEL: z.string().min(1).optional(),
   OPENAI_TRANSCRIBE_MODEL: z.string().default("gpt-transcribe"),
   CLIENT_TOKEN: z.string().min(16).optional(),
   PORT: z.coerce.number().int().positive().default(3000),

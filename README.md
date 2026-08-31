@@ -30,6 +30,14 @@ npm run dev
 
 Healthcheck: `GET http://localhost:3000/health`
 
+Die Pipeline wählt Prompt, Bilddetail, Reasoning und Ausgabelimit anhand von Modus
+und fachlicher Unterart. `OPENAI_FAST_MODEL` kann für häufige leichte Anfragen und
+`OPENAI_REASONING_MODEL` für Mathe- und Codefragen gesetzt werden; ohne diese
+Variablen bleibt `OPENAI_VISION_MODEL` der sichere gemeinsame Fallback. Der Router
+markiert OCR, Calculator und Codeprüfung nur in fachlich passenden Pipelines als
+zulässig. Noch nicht implementierte Werkzeuge werden dadurch nicht vorgetäuscht
+oder an das Modell übertragen.
+
 ## Expo-Prototyp starten
 
 Handy und Entwicklungsrechner müssen im selben Netzwerk sein. Zuerst die

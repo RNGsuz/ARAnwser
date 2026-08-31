@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import { answerSchema, glassesExerciseSchema, recognizedItemSchema, type Answer, type QueryInput, type VisionService } from "./types.js";
 import type { Config } from "./config.js";
+import { selectPipelinePolicy } from "./pipeline-policy.js";
 
 export const outputJsonSchema = {
   type: "object",
@@ -182,7 +183,7 @@ type AnswerIntent = NonNullable<QueryInput["intent"]>;
 
 const commonOutputFields = ["answerKind", "shortAnswer", "glassesSummary", "spokenAnswer", "evidence", "confidence", "needsRetake", "retakeHint", "blocks"] as const;
 
-export function outputJsonSchemaForIntent(intent: AnswerIntent = "solve") {
+export function outputJsonSchemaForIntent(intent: AnswerIntent = "solve", taskKind: "direct" | "math" | "code" = "direct") {
   const answerKind = intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general";
   const specific = intent === "discover"
     ? ["discoveryInfo"]
@@ -190,7 +191,11 @@ export function outputJsonSchemaForIntent(intent: AnswerIntent = "solve") {
       ? ["readingInfo"]
       : intent === "solve"
         ? ["glassesExercises", "recognizedItems", "glassesCodeUnits", "solution"]
-        : ["solution"];
+        : taskKind === "code"
+          ? ["glassesCodeUnits", "solution"]
+          : taskKind === "math"
+            ? ["glassesExercises", "recognizedItems", "solution"]
+            : ["solution"];
   const required = [...commonOutputFields, ...specific];
   const allProperties: Record<string, unknown> = outputJsonSchema.properties;
   const properties: Record<string, unknown> = Object.fromEntries(required.map((key) => [key, allProperties[key]]));
@@ -249,6 +254,43 @@ export function parseAnswerPayload(payload: unknown, intent: AnswerIntent = "sol
   throw parsed.error;
 }
 
+function instructionsForInput(input: QueryInput, intent: AnswerIntent, taskKind: "direct" | "math" | "code"): string {
+  const answerKind = intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general";
+  const common = [
+    `Set answerKind exactly to ${answerKind}. Answer in locale ${input.locale}.`,
+    "Use previous context only for contextual follow-ups. Keep shortAnswer glanceable and spokenAnswer natural. Evidence has at most three brief supporting points.",
+    "glassesSummary is the primary small-display result. Use complete short lines, readable Unicode, and no raw LaTeX commands, dollar delimiters, or begin/end environments.",
+    "Build blocks in reading order: text for prose, code for source code, and math for LaTeX. Do not duplicate primary display content in blocks.",
+  ];
+  if (intent === "discover") return [...common,
+    "The user selected object discovery. Identify and explain the main physical object, animal, plant, artwork, food, or scene. Do not treat writing as a worksheet or solve tasks unless explicitly asked. Be honest about ambiguity and request a better photo when responsible identification is impossible.",
+    "discoveryInfo is required: likely name, short category, compact description, two to four non-repeating useful facts, plausible alternatives only when meaningful, and a safetyNote for plants, fungi, animals, foods, medicines, chemicals, tools, or similar risk. glassesSummary has exactly two complete lines: name, then an identifying description of at most 60 characters.",
+  ].join(" ");
+  if (intent === "read") return [...common,
+    "The user selected reading and understanding. Analyze the visible slide, document, table, diagram, or sign and follow the requested action. Do not solve exercises unless explicitly requested. Preserve visible facts, labels, numbers, and order; distinguish textual claims from visual interpretation.",
+    "readingInfo is required. title preserves the visible title or is null. summary has one to five complete statements. recognizedText contains original visible text only when transcription is requested, otherwise null. keyPoints contains important textual claims without duplication. visualFindings contains meaningful chart, table, layout, or other non-text findings. glassesSummary has at most four short lines.",
+  ].join(" ");
+  if (intent === "question") {
+    const general = ["There is no photo. Set needsRetake=false and retakeHint=null."];
+    if (taskKind === "code") general.push("For code implementation, create exactly one complete glassesCodeUnits item per requested method, helper, class, or test/main section, in requested order. label is the complete signature or precise section name. Include each declaration through its final closing brace. Never combine or split units. Keep solution.steps empty and do not repeat code in blocks.");
+    else if (taskKind === "math") general.push("Solve and verify the mathematical question. Use generated labels only when needed. Put one glassesExercises item per answered part and preserve related labels from the question. Use compact transformations only when requested, and keep solution.steps empty when structured exercises are present.");
+    else general.push("Answer directly. Use solution only when a short progressive explanation materially helps; otherwise use kind=direct with no steps.");
+    return [...common, ...general].join(" ");
+  }
+  return [...common,
+    "Answer only from the photographed task. Never invent unreadable or absent content. If evidence is insufficient, set needsRetake=true and give a concrete retake instruction.",
+    "Treat related subquestions such as a), b), c) under one shared prompt as one exercise and answer all. If several independent exercises are visible and none was identified, enumerate them briefly and ask the user to choose.",
+    "Preserve every visible exercise label verbatim and in document order, including 1), 150), a), Frage 2), Aufgabe 7a, or Roman numerals. Generate a label only when none is visible and mark labelSource=generated.",
+    "For math, create one glassesExercises and recognizedItems entry per answered exercise. Use LaTeX only in Latex fields without delimiters or boxed environments. Do not duplicate derivations in solution.steps.",
+    input.includeSteps === false
+      ? "The user disabled solution paths: every transformations array is empty. Keep results and recognized items."
+      : "The user enabled solution paths: each exercise has at most six compact mathematical states from original to final result. Each entry is one state; operation is null first and otherwise one short unambiguous action. Do not chain states with implication arrows.",
+    "For code implementation, put exactly one complete requested method, helper, class, or test/main section in each glassesCodeUnits item, in requested order. Each code value includes its declaration through the final closing brace. Never combine or split units. Keep solution.steps empty and do not repeat code in blocks or evidence.",
+    "For code tracing rather than implementation, leave glassesCodeUnits empty and use one concise solution step per relevant execution stage. For other task types use solution only when it adds learning value.",
+    "Solve and verify before writing result fields. shortAnswer, glassesSummary, structured units, spokenAnswer, evidence, and blocks must agree.",
+  ].join(" ");
+}
+
 export class OpenAIVisionService implements VisionService {
   private readonly client: OpenAI;
 
@@ -266,64 +308,34 @@ export class OpenAIVisionService implements VisionService {
   }
 
   async answer(input: QueryInput): Promise<Answer> {
-    const intent = input.intent ?? (input.image ? "solve" : "question");
+    const policy = selectPipelinePolicy(input, {
+      defaultModel: this.config.OPENAI_VISION_MODEL,
+      fastModel: this.config.OPENAI_FAST_MODEL,
+      reasoningModel: this.config.OPENAI_REASONING_MODEL,
+    });
+    const intent = policy.intent;
     const hasImage = Boolean(input.image && input.imageMimeType);
-    const isDiscovery = input.intent === "discover";
-    const isReading = input.intent === "read";
     const previousContext = input.previousQuestion && input.previousAnswer
       ? `Previous question: ${input.previousQuestion}\nPrevious answer: ${input.previousAnswer}\n\n`
       : "";
     const content: Array<Record<string, unknown>> = [{
       type: "input_text",
-      text: hasImage
-        ? `${previousContext}Current question: ${input.question}\n\nLocal OCR (may contain errors):\n${input.ocrText || "[no OCR text]"}`
+      text: hasImage && policy.allowedTools.includes("ocr") && input.ocrText
+        ? `${previousContext}Current question: ${input.question}\n\nLocal OCR (may contain errors):\n${input.ocrText}`
         : `${previousContext}Current question: ${input.question}`,
     }];
     if (input.image && input.imageMimeType) {
       content.push({
         type: "input_image",
         image_url: `data:${input.imageMimeType};base64,${input.image.toString("base64")}`,
-        detail: "high",
+        detail: policy.imageDetail,
       });
     }
     const response = await this.client.responses.create({
-      model: this.config.OPENAI_VISION_MODEL,
+      model: policy.model,
       store: false,
-      reasoning: { effort: "low" },
-      instructions: [
-        `Set answerKind exactly to ${intent === "discover" ? "discovery" : intent === "read" ? "reading" : intent === "solve" ? "solution" : "general"}.`,
-        isDiscovery
-          ? "The user deliberately selected object discovery. Identify and explain the main physical object, animal, plant, artwork, food, or scene in the photo. Do not treat visible writing as a worksheet and do not solve tasks unless the current question explicitly asks for it. Be honest about visual ambiguity. If the main subject cannot be identified responsibly, set needsRetake=true and give a concrete retake instruction."
-          : isReading
-            ? "The user deliberately selected reading and understanding. Analyze the visible slide, document, table, diagram, or sign. Follow the requested reading action exactly. Do not solve exercises unless the current question explicitly asks for a solution. Preserve visible facts, labels, numbers, and document order, and distinguish text content from visual interpretation."
-          : hasImage
-          ? "Answer only from the photographed document or slide. Never invent unreadable or absent content. If evidence is insufficient, set needsRetake=true and explain how to improve the photo."
-          : "Answer the general question directly. There is no photo to inspect, so always set needsRetake=false and retakeHint=null.",
-        hasImage && input.intent === "solve" ? "Treat related subquestions such as a), b), and c) under one shared prompt as one exercise and answer all of them unless the user asks for only one." : "",
-        hasImage && input.intent === "solve" ? "If the image instead contains several independent exercises on a book or worksheet page and the user did not identify one, do not choose arbitrarily: briefly enumerate them and ask which one to solve." : "",
-        isDiscovery
-          ? "For discovery mode, discoveryInfo is required. name is the most likely identification, category is a short category, description is a compact two-sentence explanation, and facts contains two to four useful or surprising facts without repetition. alternatives lists plausible alternatives only when uncertainty is meaningful. Add a concise safetyNote for plants, fungi, animals, foods, medicines, chemicals, tools, or other cases where visual identification must not be treated as safety advice; otherwise use null. glassesSummary has exactly two separately understandable lines: the object name, then a complete identifying description of at most 60 characters; never truncate a word. The following discovery cards already show the facts. Keep glassesExercises, recognizedItems, and glassesCodeUnits empty, and solution.steps empty."
-          : "For all modes other than discovery, discoveryInfo must be null.",
-        isReading
-          ? "For reading mode, readingInfo is required. title preserves the visible title or is null. summary contains one to five concise complete statements. recognizedText contains the requested original visible text when transcription is requested, otherwise null. keyPoints contains the most important textual claims without duplication. visualFindings contains only meaningful information from charts, tables, layout, or other non-text visual elements. Keep glassesExercises, recognizedItems, and glassesCodeUnits empty, and solution.steps empty. glassesSummary contains no more than four short lines and must match the requested action."
-          : "For all modes other than reading, readingInfo must be null.",
-        "Use the previous exchange only to resolve contextual follow-ups. Keep shortAnswer glanceable. spokenAnswer may explain more. Evidence contains up to three brief supporting points.",
-        "glassesSummary is the result-only view for a small display. For related subquestions, create exactly one concise line per requested part and preserve labels such as a), b), and c). Do not add reasoning, introductions, raw LaTeX commands, dollar delimiters, or environments such as begin/end to these lines; use readable Unicode symbols where useful. Quote string results and write numbers, booleans, and null explicitly. Set format=output for program output, exact result lists, or labeled exercise answers; otherwise use format=text. For a normal single question, use one to three short lines.",
-        "The glasses display is the primary output. Preserve every visible exercise label verbatim in glassesSummary, glassesExercises, and recognizedItems, including forms such as 1), 150), a), Frage 2), Aufgabe 7a, or Roman numerals. Never renumber, shorten, translate, or normalize a document label. Keep document order. Only generate labels such as Aufgabe 1 when no visible label exists, and then set labelSource=generated; otherwise set labelSource=document.",
-        "For photographed math exercises, create one glassesExercises item and one recognizedItems item for every exercise that was answered. sourceLatex is the original recognized expression, resultLatex is only the final result, and recognizedItems must include all answered exercises rather than only the first. For non-math responses, glassesExercises may be empty. Use LaTeX only in fields explicitly named Latex, without dollar delimiters or boxed environments.",
-        "When glassesExercises is non-empty, do not duplicate its derivation in solution.steps. Keep solution.steps empty and use blocks only for optional secondary phone diagnostics that add information rather than another copy of the same compact derivation.",
-        input.includeSteps === false
-          ? "The user disabled solution paths. Every glassesExercises transformations array must be empty. Keep the result summary and recognized items. The secondary phone-oriented solution and blocks may still contain concise diagnostic detail."
-          : "The user enabled solution paths. For each math exercise, transformations contains the complete derivation in at most six compact states, including the original expression as the first state and final result as the last. Each entry is exactly one mathematical state. operation is null for the first state and otherwise a very short, unambiguous action such as ausmult., −20x², −3x, or ÷(−7). Do not use implication arrows to chain several states inside one entry.",
-        "Use solution as a progressive learning path after the result. For math, use kind=math and one meaningful transformation per step with LaTeX in content. For document questions, use kind=document and progress from the relevant passage to its interpretation. For conceptual questions, use kind=concept and progress from the key idea to the reason or consequence. Use kind=selection when asking the user to choose an independent exercise. Use kind=direct and zero steps only when steps add no learning value. Keep every step independently understandable, concise, and free of invented evidence. language is only set for code content and null otherwise.",
-        "For a code implementation task, use kind=code. The implementation itself belongs exclusively in glassesCodeUnits, while solution.steps stays empty. For code tracing rather than implementation, leave glassesCodeUnits empty, use one solution step per relevant execution stage, and avoid repeating unchanged source.",
-        "For code implementation tasks, glassesCodeUnits is the primary display output. Create exactly one unit for every requested method, helper method, class, and test/main section that you implement, in the order requested by the task. label is the complete signature or a precise visible name, code contains that unit from declaration through its final closing brace with nothing omitted, language is the source language, and explanation is one concise sentence. Never combine several methods in one unit and never split one method across units. For non-implementation answers, glassesCodeUnits is empty.",
-        "When glassesCodeUnits is non-empty, keep solution.steps empty and never repeat any of its code in blocks. blocks may contain only genuinely supplementary non-code diagnostics. evidence must not be used to create method explanations; each code unit already owns its explanation.",
-        "Solve and verify the task before writing any result field. shortAnswer, glassesSummary, solution, spokenAnswer, evidence, and blocks must agree on the same result. Never repeat code that already occurs in a solution step inside blocks. For code implementations, blocks contain only genuinely supplementary prose, formulas, or code not already represented as a unit. For all other tasks, use blocks only for useful final detail rather than duplicating every step.",
-        "Build blocks in reading order. Use text blocks for prose and limited Markdown, code blocks for source code with its language, and math blocks for LaTeX. Never put code or display mathematics into a text block.",
-        "spokenAnswer must verbalize formulas and code naturally instead of reading raw LaTeX or punctuation.",
-        `Answer in locale ${input.locale}.`,
-      ].join(" "),
+      reasoning: { effort: policy.reasoningEffort },
+      instructions: instructionsForInput(input, intent, policy.taskKind),
       input: [{
         role: "user",
         content: content as never,
@@ -333,10 +345,10 @@ export class OpenAIVisionService implements VisionService {
           type: "json_schema",
           name: "document_answer",
           strict: true,
-          schema: outputJsonSchemaForIntent(intent),
+          schema: outputJsonSchemaForIntent(intent, policy.taskKind),
         },
       },
-      max_output_tokens: 5000,
+      max_output_tokens: policy.maxOutputTokens,
     });
 
     if (response.status === "incomplete") throw new Error("ai_response_incomplete");
