@@ -130,6 +130,11 @@ Dokumente für Testaufnahmen verwenden.
 - Neue strukturierte und alte reine Textantworten aus dem Verlauf öffnen.
 - Ausführliche Smartphone-Inhalte müssen unter **Details / Diagnose** zunächst
   eingeklappt sein und sich weiterhin öffnen lassen.
+- **Details / Diagnose** öffnen und prüfen: Das tatsächlich gemeldete
+  Antwortmodell muss als Chip erscheinen. Beim Automatikmodus muss zusätzlich das
+  Routing-Modell sichtbar sein; bei direkter Moduswahl darf dieser Chip fehlen.
+  Reasoning, Bilddetail und tatsächlich verwendete Werkzeuge müssen plausibel
+  sein und dürfen nicht im Brillendisplay erscheinen.
 - Lernschritte müssen nach dem Speichern im Verlauf erhalten bleiben.
 - Kompakte Code- beziehungsweise Formelkarte im simulierten Brillendisplay prüfen.
 - Bei einer längeren Codeantwort kontrollieren: Kurzantwort zuerst, Hinweis

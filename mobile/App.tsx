@@ -129,7 +129,8 @@ export default function App() {
       setClassification(result);
       if (result.confidence >= 0.9) {
         setAssistantMode(result.suggestedMode);
-        await acceptAnswer(await createClassifiedQuery(targetSession, result.suggestedMode, questionForMode(result.suggestedMode, settings.explainSteps), settings.explainSteps));
+        const classifiedAnswer = await createClassifiedQuery(targetSession, result.suggestedMode, questionForMode(result.suggestedMode, settings.explainSteps), settings.explainSteps);
+        await acceptAnswer(withRoutingModel(classifiedAnswer, result.modelUsed));
       } else {
         retryAction.current = null;
         setState('captured');
@@ -143,7 +144,10 @@ export default function App() {
 
   async function submitClassified(mode: VisualMode) {
     setAssistantMode(mode);
-    const action = () => createClassifiedQuery(currentSession, mode, questionForMode(mode, settings.explainSteps), settings.explainSteps);
+    const action = async () => withRoutingModel(
+      await createClassifiedQuery(currentSession, mode, questionForMode(mode, settings.explainSteps), settings.explainSteps),
+      classification?.modelUsed,
+    );
     retryAction.current = () => executeRequest(action);
     await executeRequest(action);
   }
@@ -546,6 +550,11 @@ function modeName(mode: AssistantMode): string {
   return 'Frage stellen';
 }
 
+function withRoutingModel(answer: DocumentAnswer, routingModel?: string): DocumentAnswer {
+  if (!routingModel || !answer.diagnostics) return answer;
+  return { ...answer, diagnostics: { ...answer.diagnostics, routingModel } };
+}
+
 function SettingRow({ title, description, value, onValueChange, disabled = false }: {
   title: string; description: string; value: boolean; onValueChange: (value: boolean) => void; disabled?: boolean;
 }) {
@@ -570,7 +579,7 @@ function supplementaryBlocks(answer: Pick<DocumentAnswer, 'blocks' | 'solution' 
 }
 
 function DetailedAnswerView({ answer, showMeta = false }: {
-  answer: Pick<DocumentAnswer, 'blocks' | 'solution' | 'glassesCodeUnits' | 'spokenAnswer' | 'confidence'>;
+  answer: Pick<DocumentAnswer, 'blocks' | 'solution' | 'glassesCodeUnits' | 'spokenAnswer' | 'confidence' | 'diagnostics'>;
   showMeta?: boolean;
 }) {
   const hasCodeUnits = Boolean(answer.glassesCodeUnits?.length) || (answer.solution?.steps.some((step) => step.contentType === 'code') ?? false);
@@ -580,7 +589,24 @@ function DetailedAnswerView({ answer, showMeta = false }: {
   return (
     <View style={styles.answerPanel}>
       {showContent ? <><Text style={styles.sectionLabel}>{answer.solution?.steps.length ? 'VERTIEFUNG' : 'AUSFÜHRLICHE ANTWORT'}</Text><AnswerContent blocks={blocks} fallback={answer.spokenAnswer} /></> : null}
+      {showMeta && answer.diagnostics ? <PipelineDiagnostics diagnostics={answer.diagnostics} /> : null}
       {showMeta ? <View style={[styles.answerMeta, !showContent && styles.answerMetaOnly]}><Text style={styles.confidence}>Sicherheit {Math.round(answer.confidence * 100)} %</Text><Pressable onPress={() => speakThroughMediaOutput(answer.spokenAnswer)}><Text style={styles.speakAction}>▶ Vorlesen</Text></Pressable></View> : null}
+    </View>
+  );
+}
+
+function PipelineDiagnostics({ diagnostics }: { diagnostics: NonNullable<DocumentAnswer['diagnostics']> }) {
+  const toolNames = { ocr: 'OCR', calculator: 'Calculator', code_verifier: 'Codeprüfung', web_search: 'Websuche' } as const;
+  return (
+    <View style={styles.pipelineDiagnostics}>
+      <Text style={styles.pipelineDiagnosticsLabel}>PIPELINE</Text>
+      <View style={styles.pipelineChips}>
+        {diagnostics.routingModel ? <View style={styles.pipelineChip}><Text style={styles.pipelineChipText}>Routing · {diagnostics.routingModel}</Text></View> : null}
+        <View style={styles.pipelineChip}><Text style={styles.pipelineChipText}>Antwort · {diagnostics.answerModel}</Text></View>
+        <View style={styles.pipelineChipMuted}><Text style={styles.pipelineChipMutedText}>Reasoning · {diagnostics.reasoningEffort}</Text></View>
+        {diagnostics.imageDetail ? <View style={styles.pipelineChipMuted}><Text style={styles.pipelineChipMutedText}>Bild · {diagnostics.imageDetail}</Text></View> : null}
+      </View>
+      <Text style={styles.pipelineTools}>Werkzeuge: {diagnostics.toolsUsed.length ? diagnostics.toolsUsed.map((tool) => toolNames[tool]).join(' · ') : 'keine verwendet'}</Text>
     </View>
   );
 }
@@ -843,6 +869,7 @@ const styles = StyleSheet.create({
   focusCard: { minHeight: 330, borderRadius: 28, backgroundColor: '#101b14', borderWidth: 1, borderColor: '#26372d', padding: 24, gap: 14, alignItems: 'center', justifyContent: 'center' }, listeningPulse: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#32191d', borderWidth: 1, borderColor: '#6d3037', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }, listeningDot: { color: '#ff646b', fontSize: 32 }, focusTitle: { color: '#f3fff7', fontSize: 27, fontWeight: '900' }, focusCopy: { color: '#92a299', fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 310 },
   errorCard: { borderRadius: 24, backgroundColor: '#251517', borderWidth: 1, borderColor: '#653237', padding: 20, gap: 15 }, errorLabel: { color: '#ff7a80', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 }, errorText: { color: '#f4e8e9', fontSize: 17, lineHeight: 25 },
   answerWorkspace: { gap: 15 }, answerMeta: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, answerMetaOnly: { borderTopWidth: 0, paddingTop: 0 }, speakAction: { color: '#70ff9b', fontSize: 13, fontWeight: '800' }, followUpCard: { borderRadius: 20, backgroundColor: '#0d1812', borderWidth: 1, borderColor: '#26372d', padding: 15, gap: 11 }, answerActions: { flexDirection: 'row', gap: 10 }, destructiveAction: { color: '#d9787d', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 12 },
+  pipelineDiagnostics: { borderTopWidth: 1, borderTopColor: '#293930', paddingTop: 13, gap: 8 }, pipelineDiagnosticsLabel: { color: '#6f8277', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 }, pipelineChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, pipelineChip: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: '#183423', borderWidth: 1, borderColor: '#346344' }, pipelineChipText: { color: '#8dffac', fontSize: 10, fontWeight: '800' }, pipelineChipMuted: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: '#18201b', borderWidth: 1, borderColor: '#303c34' }, pipelineChipMutedText: { color: '#9caaa1', fontSize: 10, fontWeight: '700' }, pipelineTools: { color: '#77897e', fontSize: 10, lineHeight: 15 },
   modeSuggestionCard: { borderRadius: 20, backgroundColor: '#261f0e', borderWidth: 1, borderColor: '#78652f', padding: 16, gap: 8 }, modeSuggestionEyebrow: { color: '#ffda77', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }, modeSuggestionTitle: { color: '#fff8e5', fontSize: 18, fontWeight: '900' }, modeSuggestionReason: { color: '#c7bfa7', fontSize: 13, lineHeight: 19 }, modeSuggestionActions: { flexDirection: 'row', gap: 8, marginTop: 4 }, modeSuggestionAccept: { flex: 1, minHeight: 42, borderRadius: 12, backgroundColor: '#ffda77', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 }, modeSuggestionAcceptText: { color: '#171207', fontSize: 12, fontWeight: '900' }, modeSuggestionDismiss: { minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#70633e', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }, modeSuggestionDismissText: { color: '#d7ccb0', fontSize: 12, fontWeight: '800' },
   discoveryInfoPanel: { borderRadius: 22, backgroundColor: '#102019', borderWidth: 1, borderColor: '#315440', padding: 18, gap: 8 }, discoveryInfoName: { color: '#f3fff7', fontSize: 25, fontWeight: '900' }, discoveryInfoDescription: { color: '#b4c5ba', fontSize: 15, lineHeight: 22 }, discoveryFactsTitle: { color: '#70ff9b', fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginTop: 8 }, discoveryFactRow: { flexDirection: 'row', gap: 9 }, discoveryFactBullet: { color: '#70ff9b', fontSize: 16 }, discoveryFactText: { flex: 1, color: '#e0ece4', fontSize: 14, lineHeight: 20 }, discoveryAlternatives: { color: '#8fa198', fontSize: 12, lineHeight: 18, marginTop: 5 }, discoverySafety: { color: '#ffda77', fontSize: 12, lineHeight: 18, borderTopWidth: 1, borderTopColor: '#3d4931', paddingTop: 9, marginTop: 4 },
   readingInfoPanel: { borderRadius: 22, backgroundColor: '#111b20', borderWidth: 1, borderColor: '#304957', padding: 18, gap: 8 }, readingInfoTitle: { color: '#f3fff7', fontSize: 23, lineHeight: 29, fontWeight: '900' }, readingSummary: { color: '#c5d6dc', fontSize: 15, lineHeight: 22 }, recognizedTextBox: { backgroundColor: '#091217', borderRadius: 14, borderWidth: 1, borderColor: '#263b46', padding: 13, marginTop: 5 }, recognizedText: { color: '#dce8ec', fontSize: 14, lineHeight: 21 },

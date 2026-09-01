@@ -14,6 +14,18 @@ describe("structured answer schema", () => {
     }).suggestedMode).toBe("solve");
   });
 
+  it("accepts privacy-safe pipeline diagnostics without making them model output fields", () => {
+    const parsed = answerSchema.parse({
+      answerKind: "general", shortAnswer: "Vier", glassesSummary: { format: "text", lines: ["4"] },
+      glassesExercises: [], recognizedItems: [], glassesCodeUnits: [], discoveryInfo: null, readingInfo: null,
+      solution: { kind: "direct", title: "Antwort", steps: [] }, spokenAnswer: "Vier.", evidence: [], confidence: 1,
+      needsRetake: false, retakeHint: null, blocks: [{ type: "text", markdown: "4" }],
+      diagnostics: { routingModel: "router-model", answerModel: "answer-model", reasoningEffort: "low", imageDetail: null, toolsOffered: ["calculator"], toolsUsed: ["calculator"] },
+    });
+    expect(parsed.diagnostics?.answerModel).toBe("answer-model");
+    expect(outputJsonSchema.properties).not.toHaveProperty("diagnostics");
+  });
+
   it("does not auto-route an alleged task without visible task evidence", () => {
     expect(parseVisualModeClassification({
       contentType: "explicit_task", taskEvidence: null,

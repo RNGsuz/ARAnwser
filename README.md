@@ -66,6 +66,12 @@ Bildwiederverwendung, Token-/Cachewerte, Laufzeit und Fehlercode. Bilder, Fragen
 OCR-Text und Antworten sind ausdrücklich nicht Teil dieser Metriken; standardmäßig
 ist die Ausgabe deaktiviert.
 
+Die API liefert zusätzlich inhaltsfreie Diagnosemetadaten mit der Antwort:
+verwendetes Routing- und Antwortmodell, Reasoning-Stufe, Bilddetail sowie
+angebotene und tatsächlich verwendete Werkzeuge. Die Expo-App zeigt sie nur im
+eingeklappten Bereich **Details / Diagnose**; das Brillendisplay bleibt davon
+unberührt. API-Schlüssel, Prompts und Nutzerinhalte sind darin nicht enthalten.
+
 ## Expo-Prototyp starten
 
 Handy und Entwicklungsrechner müssen im selben Netzwerk sein. Zuerst die

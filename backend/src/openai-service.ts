@@ -342,8 +342,9 @@ export class OpenAIVisionService implements VisionService {
   }
 
   async classify(image: Buffer, mimeType: string, locale: string): Promise<VisualModeClassification> {
+    const model = this.config.OPENAI_FAST_MODEL || this.config.OPENAI_VISION_MODEL;
     const response = await this.client.responses.create({
-      model: this.config.OPENAI_FAST_MODEL || this.config.OPENAI_VISION_MODEL,
+      model,
       store: false,
       prompt_cache_key: "ar-answer:visual-classifier:v2",
       reasoning: { effort: "low" },
@@ -367,7 +368,7 @@ export class OpenAIVisionService implements VisionService {
       max_output_tokens: 220,
     });
     if (response.status === "incomplete") throw new Error("ai_response_incomplete");
-    return parseVisualModeClassification(JSON.parse(response.output_text));
+    return { ...parseVisualModeClassification(JSON.parse(response.output_text)), modelUsed: response.model || model };
   }
 
   async answer(input: QueryInput): Promise<Answer> {
@@ -426,8 +427,16 @@ export class OpenAIVisionService implements VisionService {
         || (tool === "code_verifier" && answer.glassesCodeUnits.length > 0)
         || (tool === "ocr" && Boolean(input.ocrText)),
       );
-      this.reportMetrics(buildRequestMetrics({ policy, response, imageIncluded: hasImage, imageResent: input.imageResent === true, localToolsUsed: localTools, latencyMs: performance.now() - startedAt, success: true }));
-      return answer;
+      const metrics = buildRequestMetrics({ policy, response, imageIncluded: hasImage, imageResent: input.imageResent === true, localToolsUsed: localTools, latencyMs: performance.now() - startedAt, success: true });
+      this.reportMetrics(metrics);
+      return { ...answer, diagnostics: {
+        routingModel: null,
+        answerModel: metrics.model,
+        reasoningEffort: policy.reasoningEffort,
+        imageDetail: metrics.imageDetail,
+        toolsOffered: metrics.toolsOffered,
+        toolsUsed: metrics.toolsUsed,
+      } };
     } catch (cause) {
       const failure = cause instanceof Error ? cause.message : "unknown";
       this.reportMetrics(buildRequestMetrics({ policy, response, imageIncluded: hasImage, imageResent: input.imageResent === true, latencyMs: performance.now() - startedAt, success: false, failureCode: failure }));

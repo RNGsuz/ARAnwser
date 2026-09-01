@@ -67,9 +67,21 @@ export const visualModeClassificationSchema = z.object({
   suggestedMode: z.enum(["discover", "read", "solve"]),
   reason: z.string().min(1).max(180),
   confidence: z.number().min(0).max(1),
+  modelUsed: z.string().min(1).max(120).optional(),
 });
 
 export type VisualModeClassification = z.infer<typeof visualModeClassificationSchema>;
+
+const pipelineToolSchema = z.enum(["ocr", "calculator", "code_verifier", "web_search"]);
+
+export const answerDiagnosticsSchema = z.object({
+  routingModel: z.string().min(1).max(120).nullable(),
+  answerModel: z.string().min(1).max(120),
+  reasoningEffort: z.enum(["low", "medium"]),
+  imageDetail: z.enum(["auto", "high"]).nullable(),
+  toolsOffered: z.array(pipelineToolSchema).max(4),
+  toolsUsed: z.array(pipelineToolSchema).max(4),
+});
 
 export const answerSchema = z.object({
   answerKind: z.enum(["discovery", "reading", "solution", "general"]),
@@ -95,6 +107,7 @@ export const answerSchema = z.object({
   needsRetake: z.boolean(),
   retakeHint: z.string().max(240).nullable(),
   blocks: z.array(answerBlockSchema).min(1).max(12),
+  diagnostics: answerDiagnosticsSchema.optional(),
 });
 
 export type Answer = z.infer<typeof answerSchema>;

@@ -74,6 +74,16 @@ export interface VisualModeClassification {
   suggestedMode: VisualMode;
   reason: string;
   confidence: number;
+  modelUsed?: string;
+}
+
+export interface AnswerDiagnostics {
+  routingModel: string | null;
+  answerModel: string;
+  reasoningEffort: 'low' | 'medium';
+  imageDetail: 'auto' | 'high' | null;
+  toolsOffered: Array<'ocr' | 'calculator' | 'code_verifier' | 'web_search'>;
+  toolsUsed: Array<'ocr' | 'calculator' | 'code_verifier' | 'web_search'>;
 }
 
 export interface ModeSuggestion {
@@ -102,6 +112,7 @@ export interface DocumentAnswer {
   needsRetake: boolean;
   retakeHint: string | null;
   blocks?: AnswerBlock[];
+  diagnostics?: AnswerDiagnostics;
 }
 
 export interface HistoryEntry {
@@ -119,5 +130,6 @@ export interface HistoryEntry {
   spokenAnswer: string;
   confidence: number;
   blocks?: AnswerBlock[];
+  diagnostics?: AnswerDiagnostics;
   createdAt: string;
 }
