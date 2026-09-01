@@ -5,6 +5,12 @@ als Objekt, Lesematerial oder Aufgabe eingeordnet oder direkt in einem Modus
 gestartet werden; allgemeine Fragen funktionieren ohne Foto. Folgefragen
 verwenden den letzten flüchtigen Sitzungskontext.
 
+**Projektstatus:** funktionsfähiger Proof of Concept. Die zentralen Abläufe sind
+praktisch erprobt; Mathematikdarstellung, Folienverständnis, Folgefragen und die
+Platzausnutzung des Brillendisplays bleiben gezielte Verbesserungsfelder. Die
+Ergebnisse und nächsten Schritte sind in der
+[Prototyp-Retrospektive](docs/prototype-retrospective.md) festgehalten.
+
 ## Architektur
 
 - `mobile/`: Expo/React-Native-Prototyp für Android und iOS mit Kamera,
