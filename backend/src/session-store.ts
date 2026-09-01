@@ -40,6 +40,8 @@ export class SessionStore {
       ...(session.intent ? { intent: session.intent } : {}),
       ...(session.isFollowUp !== undefined ? { isFollowUp: session.isFollowUp } : {}),
       ...(session.imageResent !== undefined ? { imageResent: session.imageResent } : {}),
+      ...(session.awaitingSelection !== undefined ? { awaitingSelection: session.awaitingSelection } : {}),
+      ...(session.hasTaskSelectionContext !== undefined ? { hasTaskSelectionContext: session.hasTaskSelectionContext } : {}),
       question: session.question,
       locale: session.locale,
     };

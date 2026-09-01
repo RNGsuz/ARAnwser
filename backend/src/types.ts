@@ -124,6 +124,8 @@ export interface QueryInput {
   intent?: "solve" | "discover" | "read" | "question";
   isFollowUp?: boolean;
   imageResent?: boolean;
+  awaitingSelection?: boolean;
+  hasTaskSelectionContext?: boolean;
 }
 
 export interface VisionService {

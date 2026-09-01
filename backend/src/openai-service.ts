@@ -311,7 +311,7 @@ function instructionsForInput(input: QueryInput, intent: AnswerIntent, taskKind:
   }
   return [...common,
     "Answer only from the photographed task. Never invent unreadable or absent content. If evidence is insufficient, set needsRetake=true and give a concrete retake instruction.",
-    "Treat related subquestions such as a), b), c) under one shared prompt as one exercise and answer all. If several independent exercises are visible and none was identified, enumerate them briefly and ask the user to choose.",
+    "Treat related subquestions such as a), b), c) under one shared prompt as one exercise and answer all. If several independent exercises are visible and none was identified, enumerate them briefly, ask the user to choose, and set solution.kind=selection.",
     "Preserve every visible exercise label verbatim and in document order, including 1), 150), a), Frage 2), Aufgabe 7a, or Roman numerals. Generate a label only when none is visible and mark labelSource=generated.",
     "For math, create one glassesExercises and recognizedItems entry per answered exercise. Use LaTeX only in Latex fields without delimiters or boxed environments. Do not duplicate derivations in solution.steps.",
     input.includeSteps === false

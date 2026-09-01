@@ -77,7 +77,7 @@ Dokumente für Testaufnahmen verwenden.
 | Klare gedruckte Seite | Sichtbare Frage korrekt und mit passender Textstelle beantworten |
 | Präsentationsfolie | Überschrift, Kernaussage und Diagrammbezug erfassen |
 | Eine Aufgabe mit a), b), c) | Alle zusammenhängenden Unterfragen beantworten |
-| Mehrere unabhängige Aufgaben | Aufgaben zuerst nummerieren; keine beliebige auswählen |
+| Mehrere unabhängige Aufgaben | Aufgaben zuerst nummerieren; keine beliebige auswählen. Loop „1!“ → Antwort 1 → gesprochen „Frage zwei“ → Antwort 2 testen: Das vorhandene Foto muss beide Male ohne neue Aufnahme verwendet werden. Auch „Aufgabe Nummer zwei“ und „Zwei!“ prüfen. Eine anschließende Verständnisfrage soll nur Textkontext verwenden. |
 | Tabelle | Zeilen- und Spaltenbezug in der Antwort nennen |
 | Diagramm | Achsen, Legende und sichtbare Entwicklung berücksichtigen |
 | Handschrift | Nur sicher lesbare Inhalte verwenden, sonst neue Aufnahme verlangen |

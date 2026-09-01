@@ -129,7 +129,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       intent: "question",
     };
     const answer = await vision.answer(input);
-    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
+    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer), awaitingSelection: answer.solution.kind === "selection", hasTaskSelectionContext: answer.solution.kind === "selection" });
     return reply.code(201).send({ queryId: randomUUID(), sessionId, question: input.question, ...answer });
   });
 
@@ -159,7 +159,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
     if (!previous?.image || !previous.imageMimeType) return reply.code(404).send({ error: "session_expired" });
     const input: QueryInput = { image: previous.image, imageMimeType: previous.imageMimeType, ...parsed.data };
     const answer = await vision.answer(input);
-    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
+    sessions.set(id, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer), awaitingSelection: answer.solution.kind === "selection", hasTaskSelectionContext: answer.solution.kind === "selection" });
     return reply.code(201).send({ queryId: randomUUID(), sessionId: id, question: input.question, ...answer });
   });
 
@@ -199,7 +199,7 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       intent: intentSchema.catch("solve").parse(fields.intent),
     };
     const answer = await vision.answer(input);
-    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer) });
+    sessions.set(sessionId, { ...input, previousQuestion: input.question, previousAnswer: answerContext(answer), awaitingSelection: answer.solution.kind === "selection", hasTaskSelectionContext: answer.solution.kind === "selection" });
     return reply.code(201).send({ queryId: randomUUID(), sessionId, question, ...answer });
   });
 
@@ -236,7 +236,16 @@ export async function buildApp(config: Config, vision: VisionService): Promise<F
       imageResent: resendImage,
     };
     const answer = await vision.answer(input);
-    sessions.set(id, { ...previous, question: input.question, locale: input.locale, includeSteps: input.includeSteps, previousQuestion: input.question, previousAnswer: answerContext(answer) });
+    sessions.set(id, {
+      ...previous,
+      question: input.question,
+      locale: input.locale,
+      includeSteps: input.includeSteps,
+      previousQuestion: input.question,
+      previousAnswer: answerContext(answer),
+      awaitingSelection: answer.solution.kind === "selection",
+      hasTaskSelectionContext: previous.hasTaskSelectionContext || previous.awaitingSelection || answer.solution.kind === "selection",
+    });
     return { queryId: randomUUID(), sessionId: id, question: input.question, ...answer };
   });
 

@@ -176,6 +176,43 @@ describe("query API", () => {
     await app.close();
   });
 
+  it("keeps the image for a short answer that selects one of several tasks", async () => {
+    const selectionAnswer = { ...answer, solution: { kind: "selection" as const, title: "Aufgabe auswählen", steps: [] } };
+    const vision: VisionService = {
+      answer: vi.fn().mockResolvedValueOnce(selectionAnswer).mockResolvedValueOnce(answer).mockResolvedValueOnce(answer),
+      classify: vi.fn(), transcribe: vi.fn(),
+    };
+    const app = await buildApp(config, vision);
+    const boundary = "task-selection-boundary";
+    const first = await app.inject({
+      method: "POST", url: "/v1/queries",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": `multipart/form-data; boundary=${boundary}` },
+      payload: multipart(boundary, { question: "Welche Aufgaben sind sichtbar?", sessionId: "selection-session", intent: "solve" }),
+    });
+    expect(first.statusCode).toBe(201);
+
+    const selected = await app.inject({
+      method: "POST", url: "/v1/queries/selection-session/follow-ups",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { question: "1!", locale: "de-DE", includeSteps: true },
+    });
+    expect(selected.statusCode).toBe(200);
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({
+      question: "1!", image: expect.any(Buffer), imageMimeType: "image/jpeg", imageResent: true,
+    }));
+
+    const nextSelected = await app.inject({
+      method: "POST", url: "/v1/queries/selection-session/follow-ups",
+      headers: { authorization: "Bearer 1234567890123456", "content-type": "application/json" },
+      payload: { question: "2!", locale: "de-DE", includeSteps: true },
+    });
+    expect(nextSelected.statusCode).toBe(200);
+    expect(vision.answer).toHaveBeenLastCalledWith(expect.objectContaining({
+      question: "2!", image: expect.any(Buffer), imageMimeType: "image/jpeg", imageResent: true,
+    }));
+    await app.close();
+  });
+
   it("transcribes a spoken follow-up and reuses the existing image", async () => {
     const vision: VisionService = {
       answer: vi.fn().mockResolvedValue(answer),

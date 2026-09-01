@@ -53,6 +53,13 @@ Beschriftungen oder sichtbarem Hintergrund. Ein Update der Sitzung kopiert den
 Bildpuffer vor dem sicheren Löschen des alten Puffers, damit spätere berechtigte
 Detailfragen weiterhin das unveränderte Foto erhalten.
 
+Eine Auswahl unter mehreren unabhängigen fotografierten Aufgaben ist ein eigener
+Sitzungskontext. Sobald die Antwort zur Auswahl auffordert, werden auch spätere
+nummerierte Angaben wie „1!“, „Aufgabe 2“ oder „die dritte“ zusammen mit dem noch
+flüchtig gespeicherten Foto verarbeitet. So können mehrere Aufgaben nacheinander
+gelöst werden. Normale Verständnisfragen verwenden weiterhin nur den
+Textkontext. Das Bild muss dafür nicht erneut aufgenommen oder hochgeladen werden.
+
 Die eingebaute Websuche wird nur angeboten, wenn die Frage ausdrücklich aktuelle
 Informationen verlangt, beispielsweise mit „heute“, „aktuell“, „Preis“,
 „Öffnungszeiten“ oder „Verfügbarkeit“. Ohne ein solches Signal enthält die
