@@ -87,11 +87,13 @@ ausschließlich HTTPS und echte Benutzer-Authentifizierung verwenden.
 Der Assistent beginnt mit einem automatischen Fotoeinstieg und vier direkten
 Modi:
 
-- **Automatisch erkennen** lädt das Foto einmal hoch und ordnet es zunächst mit
-  niedriger Bilddetailstufe **Entdecken**, **Lesen & Verstehen** oder
+- **Automatisch erkennen** lädt das Foto einmal hoch und ordnet es anhand des
+  lesbaren Bildinhalts **Entdecken**, **Lesen & Verstehen** oder
   **Aufgabe lösen** zu. Ab 90 % Sicherheit startet die passende Pipeline;
   darunter fragt die App nach. Das flüchtig gespeicherte Bild wird serverseitig
-  wiederverwendet.
+  wiederverwendet. **Aufgabe lösen** ist nur zulässig, wenn eine konkrete
+  sichtbare Frage oder Arbeitsanweisung als Beleg erkannt wurde; reine
+  Informationsfolien landen in **Lesen & Verstehen**.
 
 - **Entdecken** fotografiert ein Objekt, Tier, eine Pflanze, ein Kunstwerk,
   Lebensmittel oder eine Szene und erzeugt eine kompakte Infobox mit

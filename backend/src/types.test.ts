@@ -1,8 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { outputJsonSchema, outputJsonSchemaForIntent, parseAnswerPayload } from "./openai-service.js";
+import { outputJsonSchema, outputJsonSchemaForIntent, parseAnswerPayload, parseVisualModeClassification } from "./openai-service.js";
 import { answerSchema } from "./types.js";
 
 describe("structured answer schema", () => {
+  it("routes informational slides to reading unless an explicit task is visible", () => {
+    expect(parseVisualModeClassification({
+      contentType: "informational_content", taskEvidence: null,
+      reason: "Die Folie nennt Voraussetzungen und Grenzen des Recyclings.", confidence: 0.98,
+    }).suggestedMode).toBe("read");
+    expect(parseVisualModeClassification({
+      contentType: "explicit_task", taskEvidence: "Berechne den Median.",
+      reason: "Eine konkrete Arbeitsanweisung ist sichtbar.", confidence: 0.96,
+    }).suggestedMode).toBe("solve");
+  });
+
+  it("does not auto-route an alleged task without visible task evidence", () => {
+    expect(parseVisualModeClassification({
+      contentType: "explicit_task", taskEvidence: null,
+      reason: "Die Folie enthält Formeln.", confidence: 0.97,
+    })).toEqual({ suggestedMode: "read", reason: "Die Folie enthält Formeln.", confidence: 0.89 });
+  });
+
   it("accepts ordered text, code, and math blocks", () => {
     const result = answerSchema.parse({
       answerKind: "solution",

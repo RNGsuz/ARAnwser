@@ -10,6 +10,13 @@ Dokumente für Testaufnahmen verwenden.
 - Über die Automatik nacheinander ein klares Objekt, eine reine Informationsfolie
   und eine eindeutige Aufgabe fotografieren. Ab 90 % muss direkt **Entdecken**,
   **Lesen & Verstehen** beziehungsweise **Aufgabe lösen** starten.
+- Eine Folie mit Überschriften wie **Grenzen**, **Voraussetzungen**, **Vorteile**
+  oder **Beispiele**, aber ohne Arbeitsanweisung, muss als **Lesen & Verstehen**
+  erkannt werden. Formeln oder Stichpunkte allein dürfen keinen Aufgabenmodus
+  auslösen.
+- **Aufgabe lösen** darf automatisch nur gewählt werden, wenn im Bild eine
+  konkrete Frage oder Arbeitsanweisung wie „Berechne“, „Bestimme“, „Erkläre“
+  oder „Implementiere“ lesbar ist.
 - Ein gemischtes oder mehrdeutiges Foto testen. Unter 90 % muss die App Bild,
   begründeten Vorschlag und alle drei Auswahlmöglichkeiten zeigen; sie darf nicht
   selbst fortfahren.

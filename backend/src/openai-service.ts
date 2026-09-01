@@ -1,9 +1,28 @@
 import OpenAI, { toFile } from "openai";
+import { z } from "zod";
 import { answerSchema, glassesExerciseSchema, recognizedItemSchema, visualModeClassificationSchema, type Answer, type QueryInput, type VisionService, type VisualModeClassification } from "./types.js";
 import type { Config } from "./config.js";
 import { selectPipelinePolicy } from "./pipeline-policy.js";
 import { validateAnswerWithTools } from "./answer-validation.js";
 import { buildRequestMetrics, type RequestMetrics } from "./request-metrics.js";
+
+const rawVisualClassificationSchema = z.object({
+  contentType: z.enum(["physical_scene", "informational_content", "explicit_task"]),
+  taskEvidence: z.string().min(1).max(160).nullable(),
+  reason: z.string().min(1).max(180),
+  confidence: z.number().min(0).max(1),
+});
+
+export function parseVisualModeClassification(payload: unknown): VisualModeClassification {
+  const raw = rawVisualClassificationSchema.parse(payload);
+  const explicitTask = raw.contentType === "explicit_task" && raw.taskEvidence !== null;
+  const suggestedMode = explicitTask ? "solve" : raw.contentType === "physical_scene" ? "discover" : "read";
+  return visualModeClassificationSchema.parse({
+    suggestedMode,
+    reason: raw.reason,
+    confidence: raw.contentType === "explicit_task" && !explicitTask ? Math.min(raw.confidence, 0.89) : raw.confidence,
+  });
+}
 
 export const outputJsonSchema = {
   type: "object",
@@ -326,27 +345,29 @@ export class OpenAIVisionService implements VisionService {
     const response = await this.client.responses.create({
       model: this.config.OPENAI_FAST_MODEL || this.config.OPENAI_VISION_MODEL,
       store: false,
-      prompt_cache_key: "ar-answer:visual-classifier:v1",
+      prompt_cache_key: "ar-answer:visual-classifier:v2",
       reasoning: { effort: "low" },
       instructions: [
-        `Classify the image for one user-facing mode. Write the short reason in ${locale}.`,
-        "solve: a visible exercise, question, worksheet, exam task, or code assignment that asks for an answer or implementation.",
-        "read: an informational document, slide, page, sign, table, or diagram to read or summarize, without a task that should be solved.",
-        "discover: a physical object, animal, plant, food, artwork, place, or general scene to identify and explain.",
-        "Return calibrated confidence. Use less than 0.9 whenever the intent is ambiguous, the image mixes categories, or important content is unreadable.",
+        `Classify the visible content, not an imagined user request. Write the short reason in ${locale}.`,
+        "physical_scene: primarily a physical object, animal, plant, food, artwork, place, or scene.",
+        "informational_content: a slide, document, textbook explanation, sign, table, or diagram that presents information. Headings such as Grenzen, Voraussetzungen, Vorteile, Beispiele, Definition, or Zusammenfassung are informational, not exercises.",
+        "explicit_task: only when the image visibly instructs the viewer or student to answer, calculate, solve, determine, explain, implement, complete, or select something. A topic, question-like title, formulas, or bullet points alone are not sufficient.",
+        "For explicit_task, taskEvidence must reproduce one short visible instruction or question that demands an answer. Otherwise taskEvidence is null and contentType must not be explicit_task.",
+        "When a presentation slide contains explanations but no explicit task, choose informational_content. Return calibrated confidence below 0.9 if text needed for the distinction is unreadable or categories are genuinely mixed.",
       ].join(" "),
-      input: [{ role: "user", content: [{ type: "input_image", image_url: `data:${mimeType};base64,${image.toString("base64")}`, detail: "low" }] }],
+      input: [{ role: "user", content: [{ type: "input_image", image_url: `data:${mimeType};base64,${image.toString("base64")}`, detail: "high" }] }],
       text: { format: { type: "json_schema", name: "visual_mode", strict: true, schema: {
-        type: "object", additionalProperties: false, required: ["suggestedMode", "reason", "confidence"], properties: {
-          suggestedMode: { type: "string", enum: ["discover", "read", "solve"] },
+        type: "object", additionalProperties: false, required: ["contentType", "taskEvidence", "reason", "confidence"], properties: {
+          contentType: { type: "string", enum: ["physical_scene", "informational_content", "explicit_task"] },
+          taskEvidence: { type: ["string", "null"], minLength: 1, maxLength: 160 },
           reason: { type: "string", minLength: 1, maxLength: 180 },
           confidence: { type: "number", minimum: 0, maximum: 1 },
         },
       } } },
-      max_output_tokens: 180,
+      max_output_tokens: 220,
     });
     if (response.status === "incomplete") throw new Error("ai_response_incomplete");
-    return visualModeClassificationSchema.parse(JSON.parse(response.output_text));
+    return parseVisualModeClassification(JSON.parse(response.output_text));
   }
 
   async answer(input: QueryInput): Promise<Answer> {
